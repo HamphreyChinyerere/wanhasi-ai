@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import {
@@ -7,11 +7,17 @@ import {
   Menu,
   Mic,
   Plus,
+  Search,
   Settings,
   UserCircle,
 } from "lucide-react";
 import AuthScreen from "./AuthScreen";
 import OnboardingScreen from "./OnboardingScreen";
+import {
+  createChat,
+  listRecentChats,
+  type ChatRecord,
+} from "./chatStore";
 import { logoutUser, watchAuthState } from "./auth";
 import { db } from "./firebase";
 import { connectVoiceAgent } from "./voiceAgent";
@@ -36,13 +42,23 @@ function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
+
   const [screen, setScreen] = useState<Screen>("home");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [mode, setMode] = useState<"dark" | "light">("dark");
+  const [mode, setMode] = useState<"dark" | "light">(() => {
+    const savedMode = localStorage.getItem("wanhasi-mode");
+    return savedMode === "light" ? "light" : "dark";
+  });
+
   const [status, setStatus] = useState("Not connected");
   const [transcripts, setTranscripts] = useState<string[]>([]);
   const [weather, setWeather] = useState<WeatherResult | null>(null);
   const [weatherStatus, setWeatherStatus] = useState("");
+
+  const [recentChats, setRecentChats] = useState<ChatRecord[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
 
   useEffect(() => {
     return watchAuthState(async (currentUser) => {
@@ -75,7 +91,37 @@ function App() {
 
   useEffect(() => {
     document.documentElement.dataset.mode = mode;
+    localStorage.setItem("wanhasi-mode", mode);
   }, [mode]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const loadRecentChats = async () => {
+      try {
+        const chats = await listRecentChats(user.uid);
+        setRecentChats(chats);
+      } catch (error) {
+        console.error("Could not load recent chats:", error);
+      }
+    };
+
+    void loadRecentChats();
+  }, [user]);
+
+  const filteredChats = useMemo(() => {
+    const normalizedSearch = searchText.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return recentChats;
+    }
+
+    return recentChats.filter((chat) =>
+      chat.title.toLowerCase().includes(normalizedSearch),
+    );
+  }, [recentChats, searchText]);
 
   if (authLoading || profileLoading) {
     return <main>Loading WaNhasi...</main>;
@@ -94,12 +140,45 @@ function App() {
     );
   }
 
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
     setTranscripts([]);
     setStatus("Not connected");
     setWeather(null);
     setWeatherStatus("");
     setScreen("home");
+
+    setChatLoading(true);
+
+    try {
+      const chatId = await createChat(user.uid);
+
+      setRecentChats((current) => [
+        {
+          id: chatId,
+          title: "New conversation",
+          messages: [],
+        },
+        ...current,
+      ]);
+    } catch (error) {
+      console.error("Could not create chat:", error);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const handleOpenChat = (chat: ChatRecord) => {
+    const messages = chat.messages ?? [];
+
+    setTranscripts(
+      messages.map((message) => {
+        const label = message.role === "user" ? "You" : "WaNhasi";
+        return `${label}: ${message.text}`;
+      }),
+    );
+
+    setStatus("Chat loaded");
+    setScreen("voice");
   };
 
   const handleStartVoice = async () => {
@@ -195,6 +274,7 @@ function App() {
                 alt="WaNhasi"
                 className="wanhasi-logo"
               />
+              <strong>WaNhasi</strong>
             </div>
           )}
 
@@ -208,22 +288,57 @@ function App() {
           </button>
         </div>
 
-        <button className="new-chat-button" onClick={handleNewChat}>
+        <button
+          className="new-chat-button"
+          onClick={() => void handleNewChat()}
+          disabled={chatLoading}
+        >
           <Plus size={18} />
-          {sidebarOpen && <span>New chat</span>}
+          {sidebarOpen && (
+            <span>{chatLoading ? "Creating..." : "New chat"}</span>
+          )}
         </button>
 
         <nav className="sidebar-nav">
-          <button type="button">
-            <Clock3 size={18} />
+          <button
+            type="button"
+            onClick={() => setSearchOpen((current) => !current)}
+          >
+            <Search size={18} />
             {sidebarOpen && <span>Search chats</span>}
           </button>
 
-          <button type="button">
-            <Clock3 size={18} />
-            {sidebarOpen && <span>Recent chats</span>}
-          </button>
+          {sidebarOpen && searchOpen && (
+            <input
+              className="chat-search-input"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Search conversations"
+              aria-label="Search conversations"
+            />
+          )}
         </nav>
+
+        {sidebarOpen && (
+          <section className="recent-section">
+            <div className="sidebar-label">Recent chats</div>
+
+            {filteredChats.length === 0 ? (
+              <span className="empty-recent">No conversations yet</span>
+            ) : (
+              filteredChats.map((chat) => (
+                <button
+                  className="recent-item"
+                  key={chat.id}
+                  onClick={() => handleOpenChat(chat)}
+                >
+                  <Clock3 size={16} />
+                  <span>{chat.title}</span>
+                </button>
+              ))
+            )}
+          </section>
+        )}
 
         <div className="sidebar-spacer" />
 
@@ -262,7 +377,7 @@ function App() {
 
                 <button
                   className="composer-mic"
-                  onClick={handleStartVoice}
+                  onClick={() => void handleStartVoice()}
                   aria-label="Start voice chat"
                 >
                   <Mic size={20} />
@@ -276,7 +391,10 @@ function App() {
               <span className="eyebrow">VOICE ASSISTANT</span>
               <h1>Talk to WaNhasi</h1>
 
-              <button className="voice-orb" onClick={handleStartVoice}>
+              <button
+                className="voice-orb"
+                onClick={() => void handleStartVoice()}
+              >
                 <Mic size={42} />
               </button>
 
