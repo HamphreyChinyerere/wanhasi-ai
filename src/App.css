@@ -412,7 +412,50 @@ h1 {
 }
 
 .wanhasi-logo {
-  width: 38px;
-  height: 38px;
+  width: 82px;
+  height: 82px;
   object-fit: contain;
+}
+
+.auth-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+}
+
+.auth-card {
+  width: min(100%, 460px);
+  padding: 32px;
+  border: 1px solid #294936;
+  border-radius: 24px;
+  background: var(--surface);
+}
+
+.onboarding-logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  margin-bottom: 20px;
+}
+
+.auth-card label {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.auth-card input,
+.auth-card select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #426c4e;
+  border-radius: 10px;
+  background: var(--background);
+  color: var(--text);
+}
+
+.form-error {
+  color: #c75b50;
 }
