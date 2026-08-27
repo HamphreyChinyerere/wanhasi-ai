@@ -2,13 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import {
-  Clock3,
   CloudSun,
   Menu,
   Mic,
+  MoreHorizontal,
+  Pencil,
+  Pin,
   Plus,
   Search,
   Settings,
+  Trash2,
   UserCircle,
 } from "lucide-react";
 import AuthScreen from "./AuthScreen";
@@ -18,7 +21,10 @@ import ProfileMenu from "./ProfileMenu";
 import {
   createChat,
   listRecentChats,
+  removeChat,
+  renameChat,
   saveChatMessage,
+  toggleChatPin,
   type ChatRecord,
 } from "./chatStore";
 import { logoutUser, watchAuthState } from "./auth";
@@ -49,8 +55,9 @@ function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mode, setMode] = useState<"dark" | "light">(() => {
-    const savedMode = localStorage.getItem("wanhasi-mode");
-    return savedMode === "light" ? "light" : "dark";
+    return localStorage.getItem("wanhasi-mode") === "light"
+      ? "light"
+      : "dark";
   });
 
   const [status, setStatus] = useState("Not connected");
@@ -62,6 +69,10 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [openChatMenu, setOpenChatMenu] = useState<string | null>(null);
+  const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
   const activeChatIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -99,28 +110,19 @@ function App() {
   }, [mode]);
 
   useEffect(() => {
-    if (!user) {
-      return;
-    }
+    if (!user) return;
 
-    const loadRecentChats = async () => {
-      try {
-        const chats = await listRecentChats(user.uid);
-        setRecentChats(chats);
-      } catch (error) {
+    void listRecentChats(user.uid)
+      .then(setRecentChats)
+      .catch((error) => {
         console.error("Could not load recent chats:", error);
-      }
-    };
-
-    void loadRecentChats();
+      });
   }, [user]);
 
   const filteredChats = useMemo(() => {
     const search = searchText.trim().toLowerCase();
 
-    if (!search) {
-      return recentChats;
-    }
+    if (!search) return recentChats;
 
     return recentChats.filter((chat) =>
       chat.title.toLowerCase().includes(search),
@@ -149,19 +151,17 @@ function App() {
     setStatus("Not connected");
     setWeather(null);
     setWeatherStatus("");
-    setScreen("home");
     setActiveChatId(null);
     activeChatIdRef.current = null;
+    setScreen("home");
   };
 
   const handleOpenChat = (chat: ChatRecord) => {
-    const messages = chat.messages ?? [];
-
-    setActiveChatId(chat.id);
     activeChatIdRef.current = chat.id;
+    setActiveChatId(chat.id);
 
     setTranscripts(
-      messages.map((message) => {
+      (chat.messages ?? []).map((message) => {
         const speaker = message.role === "user" ? "You" : "WaNhasi";
         return `${speaker}: ${message.text}`;
       }),
@@ -169,43 +169,7 @@ function App() {
 
     setStatus("Chat loaded");
     setScreen("voice");
-  };
-
-  const saveVoiceMessage = async (
-    role: "user" | "assistant",
-    text: string,
-  ) => {
-    let chatId = activeChatIdRef.current;
-
-    if (!chatId && role === "user") {
-      const title = text
-        .trim()
-        .split(/\s+/)
-        .slice(0, 7)
-        .join(" ");
-
-      chatId = await createChat(user.uid, title);
-      activeChatIdRef.current = chatId;
-      setActiveChatId(chatId);
-
-      setRecentChats((current) => [
-        {
-          id: chatId as string,
-          title,
-          messages: [],
-        },
-        ...current,
-      ]);
-    }
-
-    if (!chatId) {
-      return;
-    }
-
-    await saveChatMessage(user.uid, chatId, {
-      role,
-      text,
-    });
+    setOpenChatMenu(null);
   };
 
   const handleStartVoice = async () => {
@@ -226,7 +190,34 @@ function App() {
             current.at(-1) === line ? current : [...current, line],
           );
 
-          void saveVoiceMessage("user", text).catch((error) => {
+          void (async () => {
+            let chatId = activeChatIdRef.current;
+
+            if (!chatId) {
+              const title = text
+                .split(/\s+/)
+                .slice(0, 7)
+                .join(" ");
+
+              chatId = await createChat(user.uid, title);
+              activeChatIdRef.current = chatId;
+              setActiveChatId(chatId);
+
+              setRecentChats((current) => [
+                {
+                  id: chatId as string,
+                  title,
+                  messages: [],
+                },
+                ...current,
+              ]);
+            }
+
+            await saveChatMessage(user.uid, chatId, {
+              role: "user",
+              text,
+            });
+          })().catch((error) => {
             console.error("Could not save user message:", error);
           });
         }
@@ -239,9 +230,16 @@ function App() {
             current.at(-1) === line ? current : [...current, line],
           );
 
-          void saveVoiceMessage("assistant", text).catch((error) => {
-            console.error("Could not save assistant message:", error);
-          });
+          const chatId = activeChatIdRef.current;
+
+          if (chatId) {
+            void saveChatMessage(user.uid, chatId, {
+              role: "assistant",
+              text,
+            }).catch((error) => {
+              console.error("Could not save assistant message:", error);
+            });
+          }
         }
       });
 
@@ -277,9 +275,7 @@ function App() {
             throw new Error("Weather request failed");
           }
 
-          const data = (await response.json()) as WeatherResult;
-
-          setWeather(data);
+          setWeather((await response.json()) as WeatherResult);
           setWeatherStatus("Weather updated");
         } catch (error) {
           setWeatherStatus("Could not load weather.");
@@ -292,10 +288,60 @@ function App() {
     );
   };
 
-  const toggleMode = () => {
-    setMode((currentMode) =>
-      currentMode === "dark" ? "light" : "dark",
+  const handleRename = async (chat: ChatRecord) => {
+    const title = renameValue.trim();
+
+    if (!title) return;
+
+    await renameChat(user.uid, chat.id, title);
+
+    setRecentChats((current) =>
+      current.map((item) =>
+        item.id === chat.id ? { ...item, title } : item,
+      ),
     );
+
+    setRenamingChatId(null);
+    setRenameValue("");
+  };
+
+  const handleDelete = async (chatId: string) => {
+    await removeChat(user.uid, chatId);
+
+    setRecentChats((current) =>
+      current.filter((chat) => chat.id !== chatId),
+    );
+
+    if (activeChatIdRef.current === chatId) {
+      setActiveChatId(null);
+      activeChatIdRef.current = null;
+      setTranscripts([]);
+      setScreen("home");
+    }
+
+    setOpenChatMenu(null);
+  };
+
+  const handleTogglePin = async (chat: ChatRecord) => {
+    const pinned = !chat.pinned;
+
+    await toggleChatPin(user.uid, chat.id, pinned);
+
+    setRecentChats((current) =>
+      current
+        .map((item) =>
+          item.id === chat.id ? { ...item, pinned } : item,
+        )
+        .sort((first, second) =>
+          first.pinned === second.pinned
+            ? 0
+            : first.pinned
+              ? -1
+              : 1,
+        ),
+    );
+
+    setOpenChatMenu(null);
   };
 
   return (
@@ -317,7 +363,6 @@ function App() {
             className="icon-button sidebar-toggle"
             onClick={() => setSidebarOpen((current) => !current)}
             aria-label={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
-            aria-expanded={sidebarOpen}
           >
             <Menu size={19} />
           </button>
@@ -356,14 +401,72 @@ function App() {
               <span className="empty-recent">No conversations yet</span>
             ) : (
               filteredChats.map((chat) => (
-                <button
-                  className="recent-item"
-                  key={chat.id}
-                  onClick={() => handleOpenChat(chat)}
-                >
-                  <Clock3 size={16} />
-                  <span>{chat.title}</span>
-                </button>
+                <div className="recent-chat-row" key={chat.id}>
+                  {renamingChatId === chat.id ? (
+                    <input
+                      className="rename-chat-input"
+                      value={renameValue}
+                      onChange={(event) =>
+                        setRenameValue(event.target.value)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          void handleRename(chat);
+                        }
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <button
+                      className="recent-item"
+                      onClick={() => handleOpenChat(chat)}
+                    >
+                      
+                      <span>{chat.title}</span>
+                      {chat.pinned && <Pin size={13} />}
+                    </button>
+                  )}
+
+                  <button
+                    className="chat-menu-button"
+                    onClick={() =>
+                      setOpenChatMenu((current) =>
+                        current === chat.id ? null : chat.id,
+                      )
+                    }
+                    aria-label={`Options for ${chat.title}`}
+                  >
+                    <MoreHorizontal size={16} />
+                  </button>
+
+                  {openChatMenu === chat.id && (
+                    <div className="chat-actions-menu">
+                      <button
+                        onClick={() => {
+                          setRenameValue(chat.title);
+                          setRenamingChatId(chat.id);
+                          setOpenChatMenu(null);
+                        }}
+                      >
+                        <Pencil size={14} />
+                        Rename
+                      </button>
+
+                      <button onClick={() => void handleTogglePin(chat)}>
+                        <Pin size={14} />
+                        {chat.pinned ? "Unpin" : "Pin"}
+                      </button>
+
+                      <button
+                        className="delete-chat-action"
+                        onClick={() => void handleDelete(chat.id)}
+                      >
+                        <Trash2 size={14} />
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))
             )}
           </section>
@@ -395,7 +498,7 @@ function App() {
 
         <main className="screen-content">
           {screen === "home" && (
-            <section className="empty-dashboard" aria-label="New chat">
+            <section className="empty-dashboard">
               <div className="chat-composer">
                 <span>Message WaNhasi...</span>
 
@@ -486,10 +589,13 @@ function App() {
 
                 <button
                   className="settings-theme-button"
-                  onClick={toggleMode}
+                  onClick={() =>
+                    setMode((current) =>
+                      current === "dark" ? "light" : "dark",
+                    )
+                  }
                 >
-                  Switch to{" "}
-                  {mode === "dark" ? "light mode" : "dark mode"}
+                  Switch to {mode === "dark" ? "light" : "dark"} mode
                 </button>
               </div>
             </section>
