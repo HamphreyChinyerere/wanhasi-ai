@@ -376,3 +376,42 @@ h1 {
     flex-direction: column;
   }
 }
+
+.sidebar-brand strong {
+  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chat-search-input {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--text);
+}
+
+.chat-search-input::placeholder {
+  color: var(--text-subtle);
+}
+
+.empty-recent {
+  padding: 8px 10px;
+  color: var(--text-subtle);
+  font-size: 0.85rem;
+}
+
+.sidebar-label {
+  padding: 0 10px;
+  color: var(--accent);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.recent-section {
+  display: grid;
+  gap: 4px;
+}
