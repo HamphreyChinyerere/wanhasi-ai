@@ -1,45 +1,54 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap");
+
 :root {
-  font-family: system-ui, sans-serif;
-  color: #173b2a;
-  background: #f4f8f2;
+  --primary: #176b3a;
+  --accent: #b8860b;
+  --background: #ffffff;
+  --surface: #f4f8f2;
+  --text: #173b2a;
+  --muted: #617267;
+
+  font-family: "Manrope", sans-serif;
 }
 
 :root[data-mode="dark"] {
-  color: #f3f7f1;
-  background: #14231b;
-}
-
-:root[data-theme="green"] {
   --primary: #176b3a;
-  --accent: #d4a72c;
+  --accent: #b8860b;
+  --background: #07150f;
+  --surface: #10291b;
+  --text: #f4f7f2;
+  --muted: #aebdaf;
 }
 
-:root[data-theme="blue"] {
-  --primary: #1d5fa7;
-  --accent: #66b3ff;
-}
-
-:root[data-theme="violet"] {
-  --primary: #7048a8;
-  --accent: #c39bea;
-}
-
-:root[data-theme="red"] {
-  --primary: #a83232;
-  --accent: #f28b82;
-}
-
+html,
 body {
   margin: 0;
   min-width: 320px;
-  background: inherit;
-  color: inherit;
+  background: var(--background);
+  color: var(--text);
+}
+
+body {
+  font-family: "Manrope", sans-serif;
+}
+
+h1,
+h2,
+h3,
+strong,
+.brand-mark {
+  font-family: "Sora", "Manrope", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+button,
+select,
+input {
+  font: inherit;
 }
 
 button,
 select {
-  margin: 0.4rem;
-  padding: 0.7rem 1rem;
   border: 2px solid var(--accent);
   border-radius: 8px;
   background: var(--primary);
@@ -49,10 +58,4 @@ select {
 
 button:hover {
   opacity: 0.85;
-}
-
-main {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 2rem 1rem;
 }
