@@ -106,6 +106,50 @@ app.get("/api/weather", async (request, response) => {
   }
 });
 
+app.get("/api/weather/current", async (request, response) => {
+  const latitude = Number(request.query.latitude);
+  const longitude = Number(request.query.longitude);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    response.status(400).json({
+      error: "Valid latitude and longitude are required",
+    });
+    return;
+  }
+
+  try {
+    const weatherUrl = new URL("https://api.open-meteo.com/v1/forecast");
+
+    weatherUrl.searchParams.set("latitude", String(latitude));
+    weatherUrl.searchParams.set("longitude", String(longitude));
+    weatherUrl.searchParams.set(
+      "current",
+      "temperature_2m,weather_code",
+    );
+    weatherUrl.searchParams.set(
+      "daily",
+      "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code",
+    );
+    weatherUrl.searchParams.set("forecast_days", "1");
+    weatherUrl.searchParams.set("timezone", "auto");
+
+    const weatherResponse = await fetch(weatherUrl);
+    const weatherData = await weatherResponse.json();
+
+    response.json({
+      latitude,
+      longitude,
+      current: weatherData.current,
+      daily: weatherData.daily,
+    });
+  } catch (error) {
+    console.error("Current-location weather failed:", error);
+    response.status(502).json({
+      error: "Could not fetch current-location weather",
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Backend running at http://localhost:${port}`);
 });

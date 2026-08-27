@@ -5,9 +5,64 @@ type VoiceMessage = {
   status?: string;
 };
 
+class MockVoiceSocket extends EventTarget {
+  readyState = 1;
+
+  constructor(private onMessage?: (message: VoiceMessage) => void) {
+    super();
+  }
+
+  send(payload: string) {
+    const message = JSON.parse(payload);
+
+    if (message.type === "session.update") {
+      setTimeout(() => {
+        this.emit({
+          type: "session.ready",
+        });
+      }, 300);
+
+      setTimeout(() => {
+        this.emit({
+          type: "transcript.agent",
+          text: "Hello, I am WaNhasi. This is mock mode, so no AssemblyAI credits are being used.",
+        });
+      }, 700);
+    }
+  }
+
+  close() {
+    this.readyState = 3;
+  }
+
+  private emit(message: VoiceMessage) {
+    this.onMessage?.(message);
+
+    this.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify(message),
+      }),
+    );
+  }
+}
+
 export async function connectVoiceAgent(
   onMessage?: (message: VoiceMessage) => void,
 ) {
+  if (import.meta.env.VITE_VOICE_MODE === "mock") {
+    const socket = new MockVoiceSocket(onMessage);
+
+    setTimeout(() => {
+      socket.send(
+        JSON.stringify({
+          type: "session.update",
+        }),
+      );
+    }, 100);
+
+    return socket;
+  }
+
   const response = await fetch("http://localhost:3001/api/voice-token");
   const { token } = await response.json();
 
