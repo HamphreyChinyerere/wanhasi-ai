@@ -1,6 +1,18 @@
 import { useState } from "react";
-import { LockKeyhole, Mail } from "lucide-react";
-import { loginUser, registerUser } from "./auth";
+import type { FormEvent } from "react";
+import {
+  Globe2,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Mail,
+} from "lucide-react";
+import {
+  loginUser,
+  registerUser,
+  signInWithGoogle,
+} from "./auth";
+import "./auth.css";
 
 type AuthScreenProps = {
   onAuthenticated: () => void;
@@ -8,21 +20,23 @@ type AuthScreenProps = {
 
 function AuthScreen({ onAuthenticated }: AuthScreenProps) {
   const [isRegistering, setIsRegistering] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setLoading(true);
 
     try {
       if (isRegistering) {
-        await registerUser(email, password);
+        await registerUser(email.trim(), password);
       } else {
-        await loginUser(email, password);
+        await loginUser(email.trim(), password);
       }
 
       onAuthenticated();
@@ -37,57 +51,56 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setError("");
+    setGoogleLoading(true);
+
+    try {
+      await signInWithGoogle();
+      onAuthenticated();
+    } catch {
+      setError("Google sign-in was cancelled or failed.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
-    <main
-      style={{
-        display: "grid",
-        minHeight: "100vh",
-        placeItems: "center",
-        padding: "24px",
-        background: "#07150f",
-        color: "#f4f7f2",
-      }}
-    >
-      <section
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          padding: "32px",
-          border: "1px solid #294936",
-          borderRadius: "24px",
-          background: "#10291b",
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <div
-            style={{
-              display: "inline-grid",
-              placeItems: "center",
-              padding: "14px",
-              borderRadius: "16px",
-              background: "#176b3a",
-              color: "#d4a72c",
-            }}
-          >
-            <img
-                src="/brand/wanhasi-logo.svg"
-                alt="WaNhasi"
-                className="wanhasi-logo"
-                />
-          </div>
+    <main className="auth-page">
+      <section className="auth-card">
+        <img
+          src="/brand/wanhasi-logo.svg"
+          alt="WaNhasi"
+          className="onboarding-logo"
+        />
 
-          <h1>{isRegistering ? "Create your account" : "Welcome back"}</h1>
+        <span className="eyebrow">WANHASI AI</span>
 
-          <p style={{ color: "#aebdaf" }}>
-            {isRegistering
-              ? "Start your journey with WaNhasi."
-              : "Continue with your farming assistant."}
-          </p>
+        <h1>{isRegistering ? "Create your account" : "Welcome back"}</h1>
+
+        <p className="auth-description">
+          {isRegistering
+            ? "Create your account and get farming guidance built for you."
+            : "Continue with your farming assistant."}
+        </p>
+
+        <button
+          type="button"
+          className="google-button"
+          onClick={handleGoogleSignIn}
+          disabled={googleLoading}
+        >
+          <Globe2 size={18} />
+          {googleLoading ? "Connecting..." : "Continue with Google"}
+        </button>
+
+        <div className="auth-divider">
+          <span>or continue with email</span>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <label style={{ display: "block", marginTop: "22px" }}>
-            Email
+        <form onSubmit={handleSubmit} className="auth-form">
+          <label>
+            Email address
             <div className="auth-input">
               <Mail size={18} />
               <input
@@ -95,38 +108,44 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@example.com"
+                autoComplete="email"
                 required
               />
             </div>
           </label>
 
-          <label style={{ display: "block", marginTop: "16px" }}>
+          <label>
             Password
             <div className="auth-input">
               <LockKeyhole size={18} />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="At least 6 characters"
+                autoComplete={
+                  isRegistering ? "new-password" : "current-password"
+                }
                 minLength={6}
                 required
               />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </label>
 
-          {error && <p style={{ color: "#f28b82" }}>{error}</p>}
+          {error && <p className="form-error">{error}</p>}
 
           <button
             type="submit"
-            className="primary-button"
+            className="auth-submit"
             disabled={loading}
-            style={{
-              width: "100%",
-              marginTop: "24px",
-              background: "#d4a72c",
-              color: "#102318",
-            }}
           >
             {loading
               ? "Please wait..."
@@ -138,16 +157,10 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
 
         <button
           type="button"
+          className="auth-switch"
           onClick={() => {
             setIsRegistering(!isRegistering);
             setError("");
-          }}
-          style={{
-            width: "100%",
-            marginTop: "16px",
-            border: 0,
-            background: "transparent",
-            color: "#d4a72c",
           }}
         >
           {isRegistering
