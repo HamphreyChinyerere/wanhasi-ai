@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
 import {
+  ArrowLeft,
+  ArrowRight,
   CloudSun,
+  Clock3,
+  FolderKanban,
   LayoutDashboard,
-  MapPin,
+  Menu,
   Mic,
   Moon,
+  Pin,
+  Plug,
+  Plus,
+  Settings,
   Sprout,
   Sun,
+  UserCircle,
 } from "lucide-react";
 import "./App.css";
 import "./theme.css";
@@ -17,7 +26,6 @@ type Screen = "home" | "voice" | "weather";
 type WeatherResult = {
   current?: {
     temperature_2m: number;
-    weather_code: number;
   };
   daily?: {
     temperature_2m_max: number[];
@@ -28,17 +36,16 @@ type WeatherResult = {
 
 function App() {
   const [screen, setScreen] = useState<Screen>("home");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mode, setMode] = useState("dark");
   const [status, setStatus] = useState("Not connected");
   const [transcripts, setTranscripts] = useState<string[]>([]);
   const [weather, setWeather] = useState<WeatherResult | null>(null);
   const [weatherStatus, setWeatherStatus] = useState("");
-  const [theme, setTheme] = useState("green");
-  const [mode, setMode] = useState("dark");
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.mode = mode;
-  }, [theme, mode]);
+  }, [mode]);
 
   const handleStartVoice = async () => {
     try {
@@ -111,158 +118,241 @@ function App() {
     );
   };
 
+  const handleNewChat = () => {
+    setTranscripts([]);
+    setStatus("Not connected");
+    setScreen("home");
+  };
+
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark">
-            <Sprout size={20} />
-          </div>
-          <div>
-            <strong>WaNhasi</strong>
-            <span>Farming assistant</span>
-          </div>
+      <aside className={sidebarOpen ? "sidebar" : "sidebar collapsed"}>
+        <div className="sidebar-header">
+          <button
+            className="icon-button"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Collapse sidebar"
+          >
+            <Menu size={20} />
+          </button>
+
+          {sidebarOpen && (
+            <div className="sidebar-brand">
+              <div className="brand-mark">
+                <Sprout size={18} />
+              </div>
+              <strong>WaNhasi</strong>
+            </div>
+          )}
         </div>
 
-        <select
-          className="theme-select"
-          value={theme}
-          onChange={(event) => setTheme(event.target.value)}
-          aria-label="Choose color theme"
-        >
-          <option value="green">Green + Gold</option>
-          <option value="blue">Blue</option>
-          <option value="violet">Violet</option>
-          <option value="red">Red</option>
-        </select>
-
-        <button
-          className="theme-button"
-          onClick={() => setMode(mode === "dark" ? "light" : "dark")}
-          aria-label="Toggle light and dark mode"
-        >
-          {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+        <button className="new-chat-button" onClick={handleNewChat}>
+          <Plus size={18} />
+          {sidebarOpen && <span>New chat</span>}
         </button>
-      </header>
 
-      <main className="screen-content">
-        {screen === "home" && (
-          <>
-            <section className="hero-card">
-              <span className="eyebrow">YOUR FARMING COMPANION</span>
-              <h1>Grow smarter with WaNhasi.</h1>
-              <p>Ask questions, understand your weather, and make better farming decisions.</p>
-              <button className="primary-button" onClick={handleStartVoice}>
-                <Mic size={18} />
-                Start a conversation
-              </button>
-            </section>
+        <nav className="sidebar-nav">
+          <button>
+            <Plug size={18} />
+            {sidebarOpen && <span>Plugins</span>}
+          </button>
 
-            <div className="section-heading">
-              <h2>Quick actions</h2>
-              <span>Today</span>
-            </div>
+          <button>
+            <Pin size={18} />
+            {sidebarOpen && <span>Pinned</span>}
+          </button>
 
-            <section className="action-grid">
-              <button className="action-card" onClick={() => setScreen("weather")}>
-                <div className="icon-badge gold">
-                  <CloudSun size={22} />
-                </div>
-                <strong>Farm weather</strong>
-                <span>Check conditions</span>
-              </button>
+          <button>
+            <FolderKanban size={18} />
+            {sidebarOpen && <span>Projects</span>}
+          </button>
+        </nav>
 
-              <button className="action-card" onClick={handleStartVoice}>
-                <div className="icon-badge green">
-                  <Mic size={22} />
-                </div>
-                <strong>Ask WaNhasi</strong>
-                <span>Get farming advice</span>
-              </button>
-            </section>
-          </>
-        )}
-
-        {screen === "voice" && (
-          <section className="voice-screen">
-            <span className="eyebrow">VOICE ASSISTANT</span>
-            <h1>How can I help?</h1>
-
-            <button className="voice-orb" onClick={handleStartVoice}>
-              <Mic size={42} />
+        {sidebarOpen && (
+          <section className="recent-section">
+            <div className="sidebar-label">Recents</div>
+            <button className="recent-item">
+              <Clock3 size={16} />
+              <span>Weather conversation</span>
             </button>
-
-            <p className="voice-status">{status}</p>
-
-            <div className="transcript-card">
-              {transcripts.length === 0 ? (
-                <span>Your conversation will appear here.</span>
-              ) : (
-                transcripts.map((transcript, index) => (
-                  <p key={`${transcript}-${index}`}>{transcript}</p>
-                ))
-              )}
-            </div>
           </section>
         )}
 
-        {screen === "weather" && (
-          <section>
-            <span className="eyebrow">LOCAL WEATHER</span>
-            <h1>Weather for your farm</h1>
+        <button className="profile-button">
+          <UserCircle size={20} />
+          {sidebarOpen && (
+            <span>
+              <strong>Your profile</strong>
+              <small>Settings</small>
+            </span>
+          )}
+          {sidebarOpen && <Settings size={16} />}
+        </button>
+      </aside>
 
-            <button className="location-button" onClick={handleCurrentWeather}>
-              <MapPin size={18} />
-              Use my current location
-            </button>
-
-            <p className="weather-status">{weatherStatus}</p>
-
-            {weather?.current && weather.daily && (
-              <div className="weather-card">
-                <CloudSun size={42} />
-                <div>
-                  <span>Current temperature</span>
-                  <strong>{weather.current.temperature_2m}°C</strong>
-                </div>
-                <div className="weather-details">
-                  <span>High {weather.daily.temperature_2m_max[0]}°C</span>
-                  <span>Low {weather.daily.temperature_2m_min[0]}°C</span>
-                  <span>
-                    Rain {weather.daily.precipitation_probability_max[0]}%
-                  </span>
-                </div>
-              </div>
+      <div className="app-main">
+        <header className="topbar">
+          <div className="topbar-left">
+            {!sidebarOpen && (
+              <button
+                className="icon-button"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open sidebar"
+              >
+                <Menu size={20} />
+              </button>
             )}
-          </section>
-        )}
-      </main>
 
-      <nav className="bottom-nav">
-        <button
-          className={screen === "home" ? "nav-item active" : "nav-item"}
-          onClick={() => setScreen("home")}
-        >
-          <LayoutDashboard size={20} />
-          <span>Home</span>
-        </button>
+            <button className="icon-button" onClick={() => window.history.back()}>
+              <ArrowLeft size={18} />
+            </button>
 
-        <button
-          className={screen === "voice" ? "nav-item active" : "nav-item"}
-          onClick={() => setScreen("voice")}
-        >
-          <Mic size={20} />
-          <span>Speak</span>
-        </button>
+            <button
+              className="icon-button"
+              onClick={() => window.history.forward()}
+            >
+              <ArrowRight size={18} />
+            </button>
+          </div>
 
-        <button
-          className={screen === "weather" ? "nav-item active" : "nav-item"}
-          onClick={() => setScreen("weather")}
-        >
-          <CloudSun size={20} />
-          <span>Weather</span>
-        </button>
-      </nav>
+          <nav className="menu-links">
+            <button>File</button>
+            <button>Edit</button>
+            <button>View</button>
+            <button>Help</button>
+          </nav>
+
+          <button
+            className="icon-button"
+            onClick={() => setMode(mode === "dark" ? "light" : "dark")}
+            aria-label="Toggle theme"
+          >
+            {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </header>
+
+        <main className="screen-content">
+          {screen === "home" && (
+            <>
+              <section className="welcome-section">
+                <span className="eyebrow">YOUR FARMING COMPANION</span>
+                <h1>How can WaNhasi help today?</h1>
+                <p>
+                  Ask questions, understand your weather, and make better
+                  farming decisions.
+                </p>
+              </section>
+
+              <section className="dashboard-grid">
+                <button
+                  className="dashboard-card"
+                  onClick={handleStartVoice}
+                >
+                  <div className="card-icon">
+                    <Mic size={22} />
+                  </div>
+                  <strong>Start a voice chat</strong>
+                  <span>Talk naturally with WaNhasi</span>
+                </button>
+
+                <button
+                  className="dashboard-card"
+                  onClick={() => setScreen("weather")}
+                >
+                  <div className="card-icon">
+                    <CloudSun size={22} />
+                  </div>
+                  <strong>Check farm weather</strong>
+                  <span>Get conditions for your location</span>
+                </button>
+              </section>
+            </>
+          )}
+
+          {screen === "voice" && (
+            <section className="voice-screen">
+              <span className="eyebrow">VOICE ASSISTANT</span>
+              <h1>Talk to WaNhasi</h1>
+
+              <button className="voice-orb" onClick={handleStartVoice}>
+                <Mic size={42} />
+              </button>
+
+              <p className="voice-status">{status}</p>
+
+              <div className="transcript-card">
+                {transcripts.length === 0 ? (
+                  <span>Your conversation will appear here.</span>
+                ) : (
+                  transcripts.map((transcript, index) => (
+                    <p key={`${transcript}-${index}`}>{transcript}</p>
+                  ))
+                )}
+              </div>
+            </section>
+          )}
+
+          {screen === "weather" && (
+            <section>
+              <span className="eyebrow">LOCAL WEATHER</span>
+              <h1>Weather for your farm</h1>
+
+              <button
+                className="location-button"
+                onClick={handleCurrentWeather}
+              >
+                <CloudSun size={18} />
+                Use my current location
+              </button>
+
+              <p className="weather-status">{weatherStatus}</p>
+
+              {weather?.current && weather.daily && (
+                <div className="weather-card">
+                  <CloudSun size={42} />
+                  <div>
+                    <span>Current temperature</span>
+                    <strong>{weather.current.temperature_2m}°C</strong>
+                  </div>
+                  <div className="weather-details">
+                    <span>High {weather.daily.temperature_2m_max[0]}°C</span>
+                    <span>Low {weather.daily.temperature_2m_min[0]}°C</span>
+                    <span>
+                      Rain {weather.daily.precipitation_probability_max[0]}%
+                    </span>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+        </main>
+
+        <nav className="bottom-nav">
+          <button
+            className={screen === "home" ? "nav-item active" : "nav-item"}
+            onClick={() => setScreen("home")}
+          >
+            <LayoutDashboard size={19} />
+            <span>Home</span>
+          </button>
+
+          <button
+            className={screen === "voice" ? "nav-item active" : "nav-item"}
+            onClick={() => setScreen("voice")}
+          >
+            <Mic size={19} />
+            <span>Speak</span>
+          </button>
+
+          <button
+            className={screen === "weather" ? "nav-item active" : "nav-item"}
+            onClick={() => setScreen("weather")}
+          >
+            <CloudSun size={19} />
+            <span>Weather</span>
+          </button>
+        </nav>
+      </div>
     </div>
   );
 }
