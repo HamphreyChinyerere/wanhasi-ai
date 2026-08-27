@@ -4,12 +4,10 @@ import { doc, getDoc } from "firebase/firestore";
 import {
   CloudSun,
   Clock3,
-  FolderKanban,
   LayoutDashboard,
   Menu,
   Mic,
   Moon,
-  Pin,
   Plug,
   Plus,
   Settings,
@@ -183,82 +181,78 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className={sidebarOpen ? "sidebar" : "sidebar collapsed"}>
+            <aside className={sidebarOpen ? "sidebar" : "sidebar collapsed"}>
         <div className="sidebar-header">
-          <div className="sidebar-header-left">
+          <div className="sidebar-brand">
+            <img
+              src="/brand/wanhasi-logo.svg"
+              alt="WaNhasi"
+              className="wanhasi-logo"
+            />
+          </div>
+
+          <div className="sidebar-controls">
+            <button
+              className="icon-button"
+              onClick={() => setMode(mode === "dark" ? "light" : "dark")}
+              aria-label="Toggle light and dark mode"
+            >
+              {mode === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
+
             <button
               className="icon-button"
               onClick={() => setSidebarOpen(false)}
               aria-label="Collapse sidebar"
             >
-              <Menu size={20} />
+              <Menu size={18} />
             </button>
-
-            {sidebarOpen && (
-              <div className="sidebar-brand">
-                <img
-                  src="/brand/wanhasi-logo.svg"
-                  alt="WaNhasi"
-                  className="wanhasi-logo"
-                />
-                <strong>WaNhasi</strong>
-              </div>
-            )}
           </div>
-
-          <button
-            className="theme-icon-button"
-            onClick={() => setMode(mode === "dark" ? "light" : "dark")}
-            aria-label="Toggle light and dark mode"
-          >
-            {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
         </div>
 
         <button className="new-chat-button" onClick={handleNewChat}>
           <Plus size={18} />
-          {sidebarOpen && <span>New chat</span>}
+          <span>New chat</span>
         </button>
 
         <nav className="sidebar-nav">
           <button>
+            <Clock3 size={18} />
+            <span>Search chats</span>
+          </button>
+
+          <button>
             <Plug size={18} />
-            {sidebarOpen && <span>Plugins</span>}
-          </button>
-
-          <button>
-            <Pin size={18} />
-            {sidebarOpen && <span>Pinned</span>}
-          </button>
-
-          <button>
-            <FolderKanban size={18} />
-            {sidebarOpen && <span>Projects</span>}
+            <span>Plugins</span>
           </button>
         </nav>
 
-        {sidebarOpen && (
-          <section className="recent-section">
-            <div className="sidebar-label">Recents</div>
+        <div className="sidebar-spacer" />
 
-            <button className="recent-item">
-              <Clock3 size={16} />
-              <span>Weather conversation</span>
-            </button>
-          </section>
-        )}
+        <nav className="sidebar-footer-links">
+          <button>
+            <Plus size={17} />
+            <span>See plans and pricing</span>
+          </button>
+
+          <button>
+            <Settings size={17} />
+            <span>Settings</span>
+          </button>
+
+          <button>
+            <UserCircle size={17} />
+            <span>Help</span>
+          </button>
+        </nav>
 
         <button className="profile-button" onClick={handleLogout}>
           <UserCircle size={20} />
 
-          {sidebarOpen && (
-            <span>
-              <strong>{user.email ?? "Your profile"}</strong>
-              <small>Sign out</small>
-            </span>
-          )}
-
-          {sidebarOpen && <Settings size={16} />}
+          <span>
+            <strong>{user.email ?? "Your profile"}</strong>
+            <small>Sign out</small>
+          </span>
         </button>
       </aside>
 
