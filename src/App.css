@@ -51,18 +51,10 @@
   color: var(--accent);
 }
 
-.brand-mark,
-.card-icon {
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: var(--primary);
-  color: var(--accent);
-}
-
-.brand-mark {
-  width: 34px;
-  height: 34px;
+.wanhasi-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
 }
 
 .new-chat-button,
@@ -240,8 +232,13 @@ h1 {
 }
 
 .card-icon {
+  display: grid;
   width: 46px;
   height: 46px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--primary);
+  color: var(--accent);
 }
 
 .voice-screen {
@@ -250,9 +247,9 @@ h1 {
 
 .voice-orb {
   display: grid;
-  place-items: center;
   width: 150px;
   height: 150px;
+  place-items: center;
   margin: 70px auto 20px;
   border: 10px solid #345b3e;
   border-radius: 50%;
@@ -353,10 +350,6 @@ h1 {
 }
 
 @media (max-width: 700px) {
-  .sidebar {
-    width: 260px;
-  }
-
   .sidebar.collapsed {
     transform: translateX(-100%);
   }
@@ -388,74 +381,4 @@ h1 {
     bottom: 12px;
     left: 12px;
   }
-}
-
-.auth-input {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 8px;
-  padding: 12px;
-  border: 1px solid #426c4e;
-  border-radius: 10px;
-  background: #0a1b11;
-  color: var(--accent);
-}
-
-.auth-input input {
-  width: 100%;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: #f4f7f2;
-  font: inherit;
-}
-
-.wanhasi-logo {
-  width: 82px;
-  height: 82px;
-  object-fit: contain;
-}
-
-.auth-page {
-  display: grid;
-  min-height: 100vh;
-  place-items: center;
-  padding: 24px;
-}
-
-.auth-card {
-  width: min(100%, 460px);
-  padding: 32px;
-  border: 1px solid #294936;
-  border-radius: 24px;
-  background: var(--surface);
-}
-
-.onboarding-logo {
-  width: 72px;
-  height: 72px;
-  object-fit: contain;
-  margin-bottom: 20px;
-}
-
-.auth-card label {
-  display: grid;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.auth-card input,
-.auth-card select {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 12px;
-  border: 1px solid #426c4e;
-  border-radius: 10px;
-  background: var(--background);
-  color: var(--text);
-}
-
-.form-error {
-  color: #c75b50;
 }
