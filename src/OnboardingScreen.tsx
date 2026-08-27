@@ -1,6 +1,8 @@
 import { useState } from "react";
+import type { FormEvent } from "react";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
+import "./auth.css";
 
 type OnboardingScreenProps = {
   userId: string;
@@ -11,17 +13,39 @@ function OnboardingScreen({
   userId,
   onComplete,
 }: OnboardingScreenProps) {
+  const [step, setStep] = useState(1);
   const [displayName, setDisplayName] = useState("");
   const [location, setLocation] = useState("");
   const [farmingFocus, setFarmingFocus] = useState("");
   const [language, setLanguage] = useState("English");
+  const [units, setUnits] = useState("Celsius");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
+  const handleNext = () => {
+    setError("");
+
+    if (step === 1 && !displayName.trim()) {
+      setError("Please enter your name.");
+      return;
+    }
+
+    if (step === 2 && !location.trim()) {
+      setError("Please enter your farming area.");
+      return;
+    }
+
+    setStep((current) => Math.min(current + 1, 3));
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (!farmingFocus.trim()) {
+      setError("Please tell us what you farm.");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -29,11 +53,13 @@ function OnboardingScreen({
       await setDoc(
         doc(db, "users", userId),
         {
-          displayName,
-          location,
-          farmingFocus,
+          displayName: displayName.trim(),
+          location: location.trim(),
+          farmingFocus: farmingFocus.trim(),
           language,
+          units,
           onboardingComplete: true,
+          createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         },
         { merge: true },
@@ -50,72 +76,136 @@ function OnboardingScreen({
 
   return (
     <main className="auth-page">
-      <section className="auth-card">
+      <section className="auth-card onboarding-card">
         <img
           src="/brand/wanhasi-logo.svg"
           alt="WaNhasi"
           className="onboarding-logo"
         />
 
-        <span className="eyebrow">WELCOME TO WANHASI</span>
-        <h1>Tell us about your farm</h1>
-        <p>
-          This helps WaNhasi provide more useful and relevant advice.
-        </p>
+        <div className="onboarding-progress">
+          <span className={step >= 1 ? "active" : ""}>1</span>
+          <span className={step >= 2 ? "active" : ""}>2</span>
+          <span className={step >= 3 ? "active" : ""}>3</span>
+        </div>
 
-        <form onSubmit={handleSubmit}>
-          <label>
-            Your name
-            <input
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-              placeholder="Your name"
-              required
-            />
-          </label>
+        {step === 1 && (
+          <>
+            <span className="eyebrow">LET’S GET STARTED</span>
+            <h1>Tell us about you</h1>
+            <p className="auth-description">
+              WaNhasi will use this to make your experience personal.
+            </p>
 
-          <label>
-            Farming area
-            <input
-              value={location}
-              onChange={(event) => setLocation(event.target.value)}
-              placeholder="For example, Harare"
-              required
-            />
-          </label>
+            <label>
+              Your name
+              <input
+                className="form-control"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                placeholder="Your name"
+                autoFocus
+              />
+            </label>
+          </>
+        )}
 
-          <label>
-            What do you farm?
-            <input
-              value={farmingFocus}
-              onChange={(event) => setFarmingFocus(event.target.value)}
-              placeholder="Crops, livestock, or both"
-              required
-            />
-          </label>
+        {step === 2 && (
+          <>
+            <span className="eyebrow">YOUR FARM</span>
+            <h1>Where do you farm?</h1>
+            <p className="auth-description">
+              This helps us provide relevant local advice and weather.
+            </p>
 
-          <label>
-            Preferred language
-            <select
-              value={language}
-              onChange={(event) => setLanguage(event.target.value)}
+            <label>
+              Farming area
+              <input
+                className="form-control"
+                value={location}
+                onChange={(event) => setLocation(event.target.value)}
+                placeholder="For example, Harare"
+                autoFocus
+              />
+            </label>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <span className="eyebrow">YOUR PREFERENCES</span>
+            <h1>Personalise WaNhasi</h1>
+            <p className="auth-description">
+              You can change these preferences later.
+            </p>
+
+            <label>
+              What do you farm?
+              <input
+                className="form-control"
+                value={farmingFocus}
+                onChange={(event) => setFarmingFocus(event.target.value)}
+                placeholder="Crops, livestock, or both"
+                autoFocus
+              />
+            </label>
+
+            <label>
+              Preferred language
+              <select
+                className="form-control"
+                value={language}
+                onChange={(event) => setLanguage(event.target.value)}
+              >
+                <option>English</option>
+                <option>Shona</option>
+                <option>Ndebele</option>
+              </select>
+            </label>
+
+            <label>
+              Temperature units
+              <select
+                className="form-control"
+                value={units}
+                onChange={(event) => setUnits(event.target.value)}
+              >
+                <option>Celsius</option>
+                <option>Fahrenheit</option>
+              </select>
+            </label>
+          </>
+        )}
+
+        {error && <p className="form-error">{error}</p>}
+
+        <div className="onboarding-actions">
+          {step > 1 && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setStep((current) => current - 1)}
             >
-              <option>English</option>
-              <option>Shona</option>
-              <option>Ndebele</option>
-            </select>
-          </label>
+              Back
+            </button>
+          )}
 
-          {error && <p className="form-error">{error}</p>}
-
-          <button
-            type="submit"
-            className="primary-button"
-            disabled={loading}
-          >
-            {loading ? "Saving..." : "Continue"}
-          </button>
-        </form>
+          {step < 3 ? (
+            <button
+              type="button"
+              className="auth-submit"
+              onClick={handleNext}
+            >
+              Continue
+            </button>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <button type="submit" className="auth-submit" disabled={loading}>
+                {loading ? "Saving..." : "Finish setup"}
+              </button>
+            </form>
+          )}
+        </div>
       </section>
     </main>
   );

@@ -188,20 +188,23 @@ function App() {
     <div className="app-shell">
       <aside className={sidebarOpen ? "sidebar" : "sidebar collapsed"}>
         <div className="sidebar-header">
-          <div className="sidebar-brand">
-            <img
-              src="/brand/wanhasi-logo.svg"
-              alt="WaNhasi"
-              className="wanhasi-logo"
-            />
-          </div>
+          {sidebarOpen && (
+            <div className="sidebar-brand">
+              <img
+                src="/brand/wanhasi-logo.svg"
+                alt="WaNhasi"
+                className="wanhasi-logo"
+              />
+            </div>
+          )}
 
           <button
-            className="icon-button"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Collapse sidebar"
+            className="icon-button sidebar-toggle"
+            onClick={() => setSidebarOpen((current) => !current)}
+            aria-label={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
+            aria-expanded={sidebarOpen}
           >
-            <Menu size={18} />
+            <Menu size={19} />
           </button>
         </div>
 
@@ -216,32 +219,25 @@ function App() {
             {sidebarOpen && <span>Search chats</span>}
           </button>
 
-          <button type="button" onClick={() => setScreen("settings")}>
-            <Settings size={18} />
-            {sidebarOpen && <span>Settings</span>}
+          <button type="button">
+            <Clock3 size={18} />
+            {sidebarOpen && <span>Recent chats</span>}
           </button>
         </nav>
 
         <div className="sidebar-spacer" />
 
-        {sidebarOpen && (
-          <nav className="sidebar-footer-links">
-            <button type="button">
-              <Plus size={17} />
-              <span>See plans and pricing</span>
-            </button>
+        <nav className="sidebar-footer-links">
+          <button type="button" onClick={() => setScreen("settings")}>
+            <Settings size={17} />
+            {sidebarOpen && <span>Settings</span>}
+          </button>
 
-            <button type="button" onClick={() => setScreen("settings")}>
-              <Settings size={17} />
-              <span>Settings</span>
-            </button>
-
-            <button type="button">
-              <UserCircle size={17} />
-              <span>Help</span>
-            </button>
-          </nav>
-        )}
+          <button type="button">
+            <UserCircle size={17} />
+            {sidebarOpen && <span>Help</span>}
+          </button>
+        </nav>
 
         <button className="profile-button" onClick={handleLogout}>
           <UserCircle size={20} />
@@ -256,19 +252,7 @@ function App() {
       </aside>
 
       <div className="app-main">
-        <header className="topbar">
-          <div className="topbar-left">
-            {!sidebarOpen && (
-              <button
-                className="icon-button"
-                onClick={() => setSidebarOpen(true)}
-                aria-label="Open sidebar"
-              >
-                <Menu size={20} />
-              </button>
-            )}
-          </div>
-        </header>
+        <header className="topbar" />
 
         <main className="screen-content">
           {screen === "home" && (
