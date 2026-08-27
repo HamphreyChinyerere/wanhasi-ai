@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import { connectVoiceAgent } from "./voiceAgent";
 import "./theme.css";
+import { connectVoiceAgent } from "./voiceAgent";
 
 type WeatherResult = {
   current?: {
@@ -16,17 +16,17 @@ type WeatherResult = {
 };
 
 function App() {
-  const [theme, setTheme] = useState("green");
-  const [mode, setMode] = useState("light");
-
-  useEffect(() => {
-  document.documentElement.dataset.theme = theme;
-  document.documentElement.dataset.mode = mode;
-  }, [theme, mode]);
   const [status, setStatus] = useState("Not connected");
   const [transcripts, setTranscripts] = useState<string[]>([]);
   const [weather, setWeather] = useState<WeatherResult | null>(null);
   const [weatherStatus, setWeatherStatus] = useState("");
+  const [theme, setTheme] = useState("green");
+  const [mode, setMode] = useState("light");
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.mode = mode;
+  }, [theme, mode]);
 
   const handleStartVoice = async () => {
     try {
@@ -61,7 +61,7 @@ function App() {
     }
   };
 
-  const handleCurrentWeather = async () => {
+  const handleCurrentWeather = () => {
     if (!navigator.geolocation) {
       setWeatherStatus("Location is not supported on this device.");
       return;
@@ -93,73 +93,74 @@ function App() {
         }
       },
       () => {
-        setWeatherStatus(
-          "Location permission was denied. You can enter a town instead.",
-        );
+        setWeatherStatus("Location permission was denied.");
       },
     );
   };
 
   return (
-  <main>
-    <h1>WaNhasi AI</h1>
-    <p>Your farming voice assistant</p>
+    <main>
+      <h1>WaNhasi AI</h1>
+      <p>Your farming voice assistant</p>
 
-    <section>
-      <label>
-        Color theme:{" "}
-        <select
-          value={theme}
-          onChange={(event) => setTheme(event.target.value)}
-        >
-          <option value="green">Green + Gold</option>
-          <option value="blue">Blue</option>
-          <option value="violet">Violet</option>
-          <option value="red">Red</option>
-        </select>
-      </label>
-
-      <label>
-        Display:{" "}
-        <select
-          value={mode}
-          onChange={(event) => setMode(event.target.value)}
-        >
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-      </label>
-    </section>
-
-    <button onClick={handleStartVoice}>
-      Start WaNhasi
-    </button>
-
-    <p>Status: {status}</p>
-
-    <button onClick={handleCurrentWeather}>
-      Use My Current Location
-    </button>
-
-    <p>{weatherStatus}</p>
-
-    {weather?.current && weather.daily && (
       <section>
-        <h2>Current Weather</h2>
-        <p>Temperature: {weather.current.temperature_2m}°C</p>
-        <p>High: {weather.daily.temperature_2m_max[0]}°C</p>
-        <p>Low: {weather.daily.temperature_2m_min[0]}°C</p>
-        <p>
-          Rain chance:{" "}
-          {weather.daily.precipitation_probability_max[0]}%
-        </p>
-      </section>
-    )}
+        <label>
+          Color theme:{" "}
+          <select
+            value={theme}
+            onChange={(event) => setTheme(event.target.value)}
+          >
+            <option value="green">Green + Gold</option>
+            <option value="blue">Blue</option>
+            <option value="violet">Violet</option>
+            <option value="red">Red</option>
+          </select>
+        </label>
 
-    <section>
-      {transcripts.map((transcript, index) => (
-        <p key={`${transcript}-${index}`}>{transcript}</p>
-      ))}
-    </section>
-  </main>
-);
+        <label>
+          Display:{" "}
+          <select
+            value={mode}
+            onChange={(event) => setMode(event.target.value)}
+          >
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+      </section>
+
+      <button onClick={handleStartVoice}>
+        Start WaNhasi
+      </button>
+
+      <p>Status: {status}</p>
+
+      <button onClick={handleCurrentWeather}>
+        Use My Current Location
+      </button>
+
+      <p>{weatherStatus}</p>
+
+      {weather?.current && weather.daily && (
+        <section>
+          <h2>Current Weather</h2>
+          <p>Temperature: {weather.current.temperature_2m}°C</p>
+          <p>High: {weather.daily.temperature_2m_max[0]}°C</p>
+          <p>Low: {weather.daily.temperature_2m_min[0]}°C</p>
+          <p>
+            Rain chance:{" "}
+            {weather.daily.precipitation_probability_max[0]}%
+          </p>
+        </section>
+      )}
+
+      <section>
+        {transcripts.map((transcript, index) => (
+          <p key={`${transcript}-${index}`}>{transcript}</p>
+        ))}
+      </section>
+    </main>
+  );
+}
+
+export default App;
