@@ -33,7 +33,12 @@ import { connectVoiceAgent } from "./voiceAgent";
 import "./App.css";
 import "./theme.css";
 
-type Screen = "home" | "voice" | "weather" | "settings" | "help";
+type Screen = "voice" | "weather" | "settings" | "help";
+
+type TranscriptMessage = {
+  role: "user" | "assistant";
+  text: string;
+};
 
 type WeatherResult = {
   current?: {
@@ -61,9 +66,7 @@ function App() {
   });
 
   const [status, setStatus] = useState("Ready to talk");
-  const [transcripts, setTranscripts] = useState<string[]>([
-    "WaNhasi: Hello, I am WaNhasi. How can I help you today?",
-  ]);
+  const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([]);
   const [weather, setWeather] = useState<WeatherResult | null>(null);
   const [weatherStatus, setWeatherStatus] = useState("");
 
@@ -112,7 +115,9 @@ function App() {
   }, [mode]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
     void listRecentChats(user.uid)
       .then(setRecentChats)
@@ -124,7 +129,9 @@ function App() {
   const filteredChats = useMemo(() => {
     const search = searchText.trim().toLowerCase();
 
-    if (!search) return recentChats;
+    if (!search) {
+      return recentChats;
+    }
 
     return recentChats.filter((chat) =>
       chat.title.toLowerCase().includes(search),
@@ -149,26 +156,24 @@ function App() {
   }
 
   const handleNewChat = () => {
-      setTranscripts([
-        "WaNhasi: Hello, I am WaNhasi. How can I help you today?",
-      ]);
-      setStatus("Ready to talk");
-      setWeather(null);
-      setWeatherStatus("");
-      setActiveChatId(null);
-      activeChatIdRef.current = null;
-      setScreen("voice");
-    };
+    setTranscripts([]);
+    setStatus("Ready to talk");
+    setWeather(null);
+    setWeatherStatus("");
+    setActiveChatId(null);
+    activeChatIdRef.current = null;
+    setScreen("voice");
+  };
 
   const handleOpenChat = (chat: ChatRecord) => {
     activeChatIdRef.current = chat.id;
     setActiveChatId(chat.id);
 
     setTranscripts(
-      (chat.messages ?? []).map((message) => {
-        const speaker = message.role === "user" ? "You" : "WaNhasi";
-        return `${speaker}: ${message.text}`;
-      }),
+      (chat.messages ?? []).map((message) => ({
+        role: message.role,
+        text: message.text,
+      })),
     );
 
     setStatus("Chat loaded");
@@ -176,8 +181,65 @@ function App() {
     setOpenChatMenu(null);
   };
 
+  const saveVoiceMessage = async (
+    role: "user" | "assistant",
+    text: string,
+  ) => {
+    let chatId = activeChatIdRef.current;
+
+    if (!chatId && role === "user") {
+      const title = text
+        .trim()
+        .split(/\s+/)
+        .slice(0, 7)
+        .join(" ");
+
+      chatId = await createChat(user.uid, title);
+      activeChatIdRef.current = chatId;
+      setActiveChatId(chatId);
+
+      setRecentChats((current) => [
+        {
+          id: chatId as string,
+          title,
+          pinned: false,
+          messages: [],
+        },
+        ...current,
+      ]);
+    }
+
+    if (!chatId) {
+      return;
+    }
+
+    await saveChatMessage(user.uid, chatId, {
+      role,
+      text,
+    });
+  };
+
+  const requestDevicePermissions = async () => {
+  await navigator.mediaDevices.getUserMedia({
+    audio: true,
+  });
+
+  if (!navigator.geolocation) {
+    throw new Error("Location is not supported on this device.");
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      () => resolve(),
+      (error) => reject(error),
+    );
+  });
+};
+
   const handleStartVoice = async () => {
     try {
+      await requestDevicePermissions();
+      
       setScreen("voice");
       setStatus("Connecting...");
 
@@ -188,62 +250,41 @@ function App() {
 
         if (message.type === "transcript.user" && message.text) {
           const text = message.text.trim();
-          const line = `You: ${text}`;
 
-          setTranscripts((current) =>
-            current.at(-1) === line ? current : [...current, line],
-          );
+          setTranscripts((current) => {
+            const previous = current.at(-1);
 
-          void (async () => {
-            let chatId = activeChatIdRef.current;
-
-            if (!chatId) {
-              const title = text
-                .split(/\s+/)
-                .slice(0, 7)
-                .join(" ");
-
-              chatId = await createChat(user.uid, title);
-              activeChatIdRef.current = chatId;
-              setActiveChatId(chatId);
-
-              setRecentChats((current) => [
-                {
-                  id: chatId as string,
-                  title,
-                  messages: [],
-                },
-                ...current,
-              ]);
+            if (previous?.role === "user" && previous.text === text) {
+              return current;
             }
 
-            await saveChatMessage(user.uid, chatId, {
-              role: "user",
-              text,
-            });
-          })().catch((error) => {
+            return [...current, { role: "user", text }];
+          });
+
+          void saveVoiceMessage("user", text).catch((error) => {
             console.error("Could not save user message:", error);
           });
         }
 
         if (message.type === "transcript.agent" && message.text) {
           const text = message.text.trim();
-          const line = `WaNhasi: ${text}`;
 
-          setTranscripts((current) =>
-            current.at(-1) === line ? current : [...current, line],
-          );
+          setTranscripts((current) => {
+            const previous = current.at(-1);
 
-          const chatId = activeChatIdRef.current;
+            if (
+              previous?.role === "assistant" &&
+              previous.text === text
+            ) {
+              return current;
+            }
 
-          if (chatId) {
-            void saveChatMessage(user.uid, chatId, {
-              role: "assistant",
-              text,
-            }).catch((error) => {
-              console.error("Could not save assistant message:", error);
-            });
-          }
+            return [...current, { role: "assistant", text }];
+          });
+
+          void saveVoiceMessage("assistant", text).catch((error) => {
+            console.error("Could not save assistant message:", error);
+          });
         }
       });
 
@@ -295,7 +336,9 @@ function App() {
   const handleRename = async (chat: ChatRecord) => {
     const title = renameValue.trim();
 
-    if (!title) return;
+    if (!title) {
+      return;
+    }
 
     await renameChat(user.uid, chat.id, title);
 
@@ -320,7 +363,7 @@ function App() {
       setActiveChatId(null);
       activeChatIdRef.current = null;
       setTranscripts([]);
-      setScreen("home");
+      setScreen("voice");
     }
 
     setOpenChatMenu(null);
@@ -425,19 +468,20 @@ function App() {
                       className="recent-item"
                       onClick={() => handleOpenChat(chat)}
                     >
-                      
                       <span>{chat.title}</span>
                       {chat.pinned && <Pin size={13} />}
                     </button>
                   )}
 
                   <button
+                    type="button"
                     className="chat-menu-button"
-                    onClick={() =>
+                    onClick={(event) => {
+                      event.stopPropagation();
                       setOpenChatMenu((current) =>
                         current === chat.id ? null : chat.id,
-                      )
-                    }
+                      );
+                    }}
                     aria-label={`Options for ${chat.title}`}
                   >
                     <MoreHorizontal size={16} />
@@ -501,22 +545,6 @@ function App() {
         <header className="topbar" />
 
         <main className="screen-content">
-          {screen === "home" && (
-            <section className="empty-dashboard">
-              <div className="chat-composer">
-                <span>Message WaNhasi...</span>
-
-                <button
-                  className="composer-mic"
-                  onClick={() => void handleStartVoice()}
-                  aria-label="Start voice chat"
-                >
-                  <Mic size={20} />
-                </button>
-              </div>
-            </section>
-          )}
-
           {screen === "voice" && (
             <section className="voice-screen">
               <span className="eyebrow">VOICE ASSISTANT</span>
@@ -535,8 +563,16 @@ function App() {
                 {transcripts.length === 0 ? (
                   <span>Your conversation will appear here.</span>
                 ) : (
-                  transcripts.map((transcript, index) => (
-                    <p key={`${transcript}-${index}`}>{transcript}</p>
+                  transcripts.map((message, index) => (
+                    <div
+                      className={`message-bubble ${message.role}`}
+                      key={`${message.role}-${index}-${message.text}`}
+                    >
+                      <small>
+                        {message.role === "user" ? "You" : "WaNhasi"}
+                      </small>
+                      <p>{message.text}</p>
+                    </div>
                   ))
                 )}
               </div>
