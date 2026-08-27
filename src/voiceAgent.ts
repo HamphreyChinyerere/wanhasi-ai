@@ -3,6 +3,9 @@ type VoiceMessage = {
   text?: string;
   data?: string;
   status?: string;
+  call_id?: string;
+  name?: string;
+  arguments?: Record<string, unknown>;
 };
 
 class MockVoiceSocket extends EventTarget {
@@ -17,15 +20,13 @@ class MockVoiceSocket extends EventTarget {
 
     if (message.type === "session.update") {
       setTimeout(() => {
-        this.emit({
-          type: "session.ready",
-        });
+        this.emit({ type: "session.ready" });
       }, 300);
 
       setTimeout(() => {
         this.emit({
           type: "transcript.agent",
-          text: "Hello, I am WaNhasi. This is mock mode, so no AssemblyAI credits are being used.",
+          text: "Hello, I am WaNhasi. Mock mode is active, so no AssemblyAI credits are being used.",
         });
       }, 700);
     }
@@ -37,13 +38,41 @@ class MockVoiceSocket extends EventTarget {
 
   private emit(message: VoiceMessage) {
     this.onMessage?.(message);
-
     this.dispatchEvent(
       new MessageEvent("message", {
         data: JSON.stringify(message),
       }),
     );
   }
+}
+
+async function getWeather(argumentsData: Record<string, unknown>) {
+  if (argumentsData.use_current_location === true) {
+    const position = await new Promise<GeolocationPosition>(
+      (resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      },
+    );
+
+    const { latitude, longitude } = position.coords;
+
+    const response = await fetch(
+      `http://localhost:3001/api/weather/current?latitude=${latitude}&longitude=${longitude}`,
+    );
+
+    return response.json();
+  }
+
+  const location =
+    typeof argumentsData.location === "string"
+      ? argumentsData.location
+      : "";
+
+  const response = await fetch(
+    `http://localhost:3001/api/weather?location=${encodeURIComponent(location)}`,
+  );
+
+  return response.json();
 }
 
 export async function connectVoiceAgent(
@@ -86,6 +115,7 @@ export async function connectVoiceAgent(
   const socket = new WebSocket(url);
   let ready = false;
   let playbackTime = audioContext.currentTime;
+  let pendingToolCall: VoiceMessage | null = null;
 
   processor.port.onmessage = (event) => {
     if (!ready || socket.readyState !== WebSocket.OPEN) return;
@@ -113,20 +143,61 @@ export async function connectVoiceAgent(
         type: "session.update",
         session: {
           system_prompt:
-            "You are WaNhasi, a helpful farming assistant for Zimbabwean farmers.",
+            "You are WaNhasi, a helpful farming assistant for Zimbabwean farmers. When the user asks about weather, ask whether they want weather for their current phone location. If they agree, call get_weather with use_current_location true. If they provide a town or area, call get_weather with that location. Never invent weather data.",
           greeting: "Hello, I am WaNhasi. How can I help you today?",
           output: { voice: "ivy" },
+          tools: [
+            {
+              type: "function",
+              name: "get_weather",
+              description:
+                "Get live weather for a town or the user's current phone location.",
+              parameters: {
+                type: "object",
+                properties: {
+                  location: {
+                    type: "string",
+                    description: "Town or farming area",
+                  },
+                  use_current_location: {
+                    type: "boolean",
+                    description:
+                      "True when the user agrees to use their phone location",
+                  },
+                },
+              },
+            },
+          ],
         },
       }),
     );
   });
 
-  socket.addEventListener("message", (event) => {
+  socket.addEventListener("message", async (event) => {
     const message: VoiceMessage = JSON.parse(event.data);
     onMessage?.(message);
 
     if (message.type === "session.ready") {
       ready = true;
+    }
+
+    if (message.type === "tool.call") {
+      pendingToolCall = message;
+    }
+
+    if (message.type === "reply.done" && pendingToolCall) {
+      const toolCall = pendingToolCall;
+      pendingToolCall = null;
+
+      const result = await getWeather(toolCall.arguments ?? {});
+
+      socket.send(
+        JSON.stringify({
+          type: "tool.result",
+          call_id: toolCall.call_id,
+          result: JSON.stringify(result),
+        }),
+      );
     }
 
     if (message.type === "reply.audio" && message.data) {
@@ -157,13 +228,10 @@ export async function connectVoiceAgent(
       player.start(playbackTime);
       playbackTime += audioBuffer.duration;
     }
+  });
 
-    if (
-      message.type === "reply.done" &&
-      message.status === "interrupted"
-    ) {
-      playbackTime = audioContext.currentTime;
-    }
+  socket.addEventListener("error", (error) => {
+    console.error("Voice connection error:", error);
   });
 
   return socket;
