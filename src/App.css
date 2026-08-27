@@ -389,3 +389,24 @@ h1 {
     left: 12px;
   }
 }
+
+.auth-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #426c4e;
+  border-radius: 10px;
+  background: #0a1b11;
+  color: var(--accent);
+}
+
+.auth-input input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f4f7f2;
+  font: inherit;
+}
