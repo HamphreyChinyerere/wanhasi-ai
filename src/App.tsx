@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { User } from "firebase/auth";
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,9 +18,11 @@ import {
   Sun,
   UserCircle,
 } from "lucide-react";
+import AuthScreen from "./AuthScreen";
+import { logoutUser, watchAuthState } from "./auth";
+import { connectVoiceAgent } from "./voiceAgent";
 import "./App.css";
 import "./theme.css";
-import { connectVoiceAgent } from "./voiceAgent";
 
 type Screen = "home" | "voice" | "weather";
 
@@ -35,6 +38,8 @@ type WeatherResult = {
 };
 
 function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [screen, setScreen] = useState<Screen>("home");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mode, setMode] = useState("dark");
@@ -44,8 +49,23 @@ function App() {
   const [weatherStatus, setWeatherStatus] = useState("");
 
   useEffect(() => {
+    return watchAuthState((currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+  }, []);
+
+  useEffect(() => {
     document.documentElement.dataset.mode = mode;
   }, [mode]);
+
+  if (authLoading) {
+    return <main>Loading WaNhasi...</main>;
+  }
+
+  if (!user) {
+    return <AuthScreen onAuthenticated={() => undefined} />;
+  }
 
   const handleStartVoice = async () => {
     try {
@@ -124,6 +144,10 @@ function App() {
     setScreen("home");
   };
 
+  const handleLogout = async () => {
+    await logoutUser();
+  };
+
   return (
     <div className="app-shell">
       <aside className={sidebarOpen ? "sidebar" : "sidebar collapsed"}>
@@ -178,12 +202,12 @@ function App() {
           </section>
         )}
 
-        <button className="profile-button">
+        <button className="profile-button" onClick={handleLogout}>
           <UserCircle size={20} />
           {sidebarOpen && (
             <span>
-              <strong>Your profile</strong>
-              <small>Settings</small>
+              <strong>{user.email ?? "Your profile"}</strong>
+              <small>Sign out</small>
             </span>
           )}
           {sidebarOpen && <Settings size={16} />}
@@ -244,10 +268,7 @@ function App() {
               </section>
 
               <section className="dashboard-grid">
-                <button
-                  className="dashboard-card"
-                  onClick={handleStartVoice}
-                >
+                <button className="dashboard-card" onClick={handleStartVoice}>
                   <div className="card-icon">
                     <Mic size={22} />
                   </div>
