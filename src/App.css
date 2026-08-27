@@ -483,3 +483,40 @@ h1 {
     left: 12px;
   }
 }
+
+
+.empty-dashboard {
+  display: flex;
+  min-height: calc(100vh - 190px);
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.chat-composer {
+  display: flex;
+  width: min(760px, 100%);
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border: 1px solid #294936;
+  border-radius: 18px;
+  background: #10291b;
+  color: #94a699;
+}
+
+.composer-mic {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: #d4a72c;
+  color: #132217;
+}
+
+:root[data-mode="light"] .chat-composer {
+  border-color: #c9ddce;
+  background: #f5faf6;
+  color: #607866;
+}

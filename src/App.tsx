@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import {
-  ArrowLeft,
-  ArrowRight,
   CloudSun,
   Clock3,
   FolderKanban,
@@ -46,7 +44,7 @@ function App() {
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [screen, setScreen] = useState<Screen>("home");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [mode, setMode] = useState("dark");
+  const [mode, setMode] = useState<"dark" | "light">("dark");
   const [status, setStatus] = useState("Not connected");
   const [transcripts, setTranscripts] = useState<string[]>([]);
   const [weather, setWeather] = useState<WeatherResult | null>(null);
@@ -187,24 +185,34 @@ function App() {
     <div className="app-shell">
       <aside className={sidebarOpen ? "sidebar" : "sidebar collapsed"}>
         <div className="sidebar-header">
-          <button
-            className="icon-button"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Collapse sidebar"
-          >
-            <Menu size={20} />
-          </button>
+          <div className="sidebar-header-left">
+            <button
+              className="icon-button"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Collapse sidebar"
+            >
+              <Menu size={20} />
+            </button>
 
-          {sidebarOpen && (
-            <div className="sidebar-brand">
-              <img
-                src="/brand/wanhasi-logo.svg"
-                alt="WaNhasi"
-                className="wanhasi-logo"
-              />
-              <strong>WaNhasi</strong>
-            </div>
-          )}
+            {sidebarOpen && (
+              <div className="sidebar-brand">
+                <img
+                  src="/brand/wanhasi-logo.svg"
+                  alt="WaNhasi"
+                  className="wanhasi-logo"
+                />
+                <strong>WaNhasi</strong>
+              </div>
+            )}
+          </div>
+
+          <button
+            className="theme-icon-button"
+            onClick={() => setMode(mode === "dark" ? "light" : "dark")}
+            aria-label="Toggle light and dark mode"
+          >
+            {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
         </div>
 
         <button className="new-chat-button" onClick={handleNewChat}>
@@ -232,6 +240,7 @@ function App() {
         {sidebarOpen && (
           <section className="recent-section">
             <div className="sidebar-label">Recents</div>
+
             <button className="recent-item">
               <Clock3 size={16} />
               <span>Weather conversation</span>
@@ -241,12 +250,14 @@ function App() {
 
         <button className="profile-button" onClick={handleLogout}>
           <UserCircle size={20} />
+
           {sidebarOpen && (
             <span>
               <strong>{user.email ?? "Your profile"}</strong>
               <small>Sign out</small>
             </span>
           )}
+
           {sidebarOpen && <Settings size={16} />}
         </button>
       </aside>
@@ -263,68 +274,24 @@ function App() {
                 <Menu size={20} />
               </button>
             )}
-
-            <button className="icon-button" onClick={() => window.history.back()}>
-              <ArrowLeft size={18} />
-            </button>
-
-            <button
-              className="icon-button"
-              onClick={() => window.history.forward()}
-            >
-              <ArrowRight size={18} />
-            </button>
           </div>
-
-          <nav className="menu-links">
-            <button>File</button>
-            <button>Edit</button>
-            <button>View</button>
-            <button>Help</button>
-          </nav>
-
-          <button
-            className="icon-button"
-            onClick={() => setMode(mode === "dark" ? "light" : "dark")}
-            aria-label="Toggle theme"
-          >
-            {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
         </header>
 
         <main className="screen-content">
           {screen === "home" && (
-            <>
-              <section className="welcome-section">
-                <span className="eyebrow">YOUR FARMING COMPANION</span>
-                <h1>How can WaNhasi help today?</h1>
-                <p>
-                  Ask questions, understand your weather, and make better
-                  farming decisions.
-                </p>
-              </section>
-
-              <section className="dashboard-grid">
-                <button className="dashboard-card" onClick={handleStartVoice}>
-                  <div className="card-icon">
-                    <Mic size={22} />
-                  </div>
-                  <strong>Start a voice chat</strong>
-                  <span>Talk naturally with WaNhasi</span>
-                </button>
+            <section className="empty-dashboard" aria-label="New chat">
+              <div className="chat-composer">
+                <span>Message WaNhasi...</span>
 
                 <button
-                  className="dashboard-card"
-                  onClick={() => setScreen("weather")}
+                  className="composer-mic"
+                  onClick={handleStartVoice}
+                  aria-label="Start voice chat"
                 >
-                  <div className="card-icon">
-                    <CloudSun size={22} />
-                  </div>
-                  <strong>Check farm weather</strong>
-                  <span>Get conditions for your location</span>
+                  <Mic size={20} />
                 </button>
-              </section>
-            </>
+              </div>
+            </section>
           )}
 
           {screen === "voice" && (
@@ -368,15 +335,18 @@ function App() {
               {weather?.current && weather.daily && (
                 <div className="weather-card">
                   <CloudSun size={42} />
+
                   <div>
                     <span>Current temperature</span>
                     <strong>{weather.current.temperature_2m}°C</strong>
                   </div>
+
                   <div className="weather-details">
                     <span>High {weather.daily.temperature_2m_max[0]}°C</span>
                     <span>Low {weather.daily.temperature_2m_min[0]}°C</span>
                     <span>
-                      Rain {weather.daily.precipitation_probability_max[0]}%
+                      Rain{" "}
+                      {weather.daily.precipitation_probability_max[0]}%
                     </span>
                   </div>
                 </div>
