@@ -410,3 +410,9 @@ h1 {
   color: #f4f7f2;
   font: inherit;
 }
+
+.wanhasi-logo {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LockKeyhole, Mail, Sprout } from "lucide-react";
+import { LockKeyhole, Mail } from "lucide-react";
 import { loginUser, registerUser } from "./auth";
 
 type AuthScreenProps = {
@@ -44,6 +44,8 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
         minHeight: "100vh",
         placeItems: "center",
         padding: "24px",
+        background: "#07150f",
+        color: "#f4f7f2",
       }}
     >
       <section
@@ -60,13 +62,18 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
           <div
             style={{
               display: "inline-grid",
+              placeItems: "center",
               padding: "14px",
               borderRadius: "16px",
               background: "#176b3a",
               color: "#d4a72c",
             }}
           >
-            <Sprout size={28} />
+            <img
+                src="/brand/wanhasi-logo.svg"
+                alt="WaNhasi"
+                className="wanhasi-logo"
+                />
           </div>
 
           <h1>{isRegistering ? "Create your account" : "Welcome back"}</h1>
@@ -108,15 +115,18 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
             </div>
           </label>
 
-          {error && (
-            <p style={{ color: "#f28b82", lineHeight: 1.4 }}>{error}</p>
-          )}
+          {error && <p style={{ color: "#f28b82" }}>{error}</p>}
 
           <button
             type="submit"
             className="primary-button"
             disabled={loading}
-            style={{ width: "100%", marginTop: "24px" }}
+            style={{
+              width: "100%",
+              marginTop: "24px",
+              background: "#d4a72c",
+              color: "#102318",
+            }}
           >
             {loading
               ? "Please wait..."
