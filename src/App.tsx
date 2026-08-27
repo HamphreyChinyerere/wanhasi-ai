@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,12 +15,13 @@ import {
   Plug,
   Plus,
   Settings,
-  Sprout,
   Sun,
   UserCircle,
 } from "lucide-react";
 import AuthScreen from "./AuthScreen";
+import OnboardingScreen from "./OnboardingScreen";
 import { logoutUser, watchAuthState } from "./auth";
+import { db } from "./firebase";
 import { connectVoiceAgent } from "./voiceAgent";
 import "./App.css";
 import "./theme.css";
@@ -40,6 +42,8 @@ type WeatherResult = {
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [screen, setScreen] = useState<Screen>("home");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mode, setMode] = useState("dark");
@@ -49,9 +53,31 @@ function App() {
   const [weatherStatus, setWeatherStatus] = useState("");
 
   useEffect(() => {
-    return watchAuthState((currentUser) => {
+    return watchAuthState(async (currentUser) => {
       setUser(currentUser);
-      setAuthLoading(false);
+
+      if (!currentUser) {
+        setOnboardingComplete(false);
+        setAuthLoading(false);
+        return;
+      }
+
+      setProfileLoading(true);
+
+      try {
+        const profile = await getDoc(doc(db, "users", currentUser.uid));
+
+        setOnboardingComplete(
+          profile.exists() &&
+            profile.data().onboardingComplete === true,
+        );
+      } catch (error) {
+        console.error("Could not load user profile:", error);
+        setOnboardingComplete(false);
+      } finally {
+        setAuthLoading(false);
+        setProfileLoading(false);
+      }
     });
   }, []);
 
@@ -59,12 +85,21 @@ function App() {
     document.documentElement.dataset.mode = mode;
   }, [mode]);
 
-  if (authLoading) {
+  if (authLoading || profileLoading) {
     return <main>Loading WaNhasi...</main>;
   }
 
   if (!user) {
     return <AuthScreen onAuthenticated={() => undefined} />;
+  }
+
+  if (!onboardingComplete) {
+    return (
+      <OnboardingScreen
+        userId={user.uid}
+        onComplete={() => setOnboardingComplete(true)}
+      />
+    );
   }
 
   const handleStartVoice = async () => {
@@ -162,9 +197,11 @@ function App() {
 
           {sidebarOpen && (
             <div className="sidebar-brand">
-              <div className="brand-mark">
-                <Sprout size={18} />
-              </div>
+              <img
+                src="/brand/wanhasi-logo.svg"
+                alt="WaNhasi"
+                className="wanhasi-logo"
+              />
               <strong>WaNhasi</strong>
             </div>
           )}
