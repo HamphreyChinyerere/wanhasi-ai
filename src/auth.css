@@ -239,3 +239,83 @@
     padding: 28px 22px;
   }
 }
+
+.google-button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+  padding: 13px 16px;
+  border: 1px solid #426c4e;
+  border-radius: 10px;
+  background: transparent;
+  color: #f4f7f2;
+  font-weight: 700;
+}
+
+.google-button:hover {
+  border-color: #d4a72c;
+  background: #163a24;
+}
+
+.google-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  color: #799080;
+  font-size: 0.8rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  flex: 1;
+  height: 1px;
+  content: "";
+  background: #294936;
+}
+
+.auth-switch {
+  width: 100%;
+  margin-top: 16px;
+  border: 0;
+  background: transparent;
+  color: #f4f7f2 !important;
+  text-align: center;
+}
+
+.auth-switch span,
+.auth-switch strong {
+  color: #f4f7f2 !important;
+  font-weight: 700;
+}
+.onboarding-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.onboarding-actions > button,
+.onboarding-actions > form,
+.onboarding-actions > form > button {
+  flex: 1;
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+.onboarding-actions > button,
+.onboarding-actions > form > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
