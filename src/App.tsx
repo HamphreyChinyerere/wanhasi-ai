@@ -124,6 +124,18 @@ function App() {
           </div>
         </div>
 
+        <select
+          className="theme-select"
+          value={theme}
+          onChange={(event) => setTheme(event.target.value)}
+          aria-label="Choose color theme"
+        >
+          <option value="green">Green + Gold</option>
+          <option value="blue">Blue</option>
+          <option value="violet">Violet</option>
+          <option value="red">Red</option>
+        </select>
+
         <button
           className="theme-button"
           onClick={() => setMode(mode === "dark" ? "light" : "dark")}
