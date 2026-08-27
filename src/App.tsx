@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import {
@@ -12,10 +12,13 @@ import {
   UserCircle,
 } from "lucide-react";
 import AuthScreen from "./AuthScreen";
+import HelpScreen from "./HelpScreen";
 import OnboardingScreen from "./OnboardingScreen";
+import ProfileMenu from "./ProfileMenu";
 import {
   createChat,
   listRecentChats,
+  saveChatMessage,
   type ChatRecord,
 } from "./chatStore";
 import { logoutUser, watchAuthState } from "./auth";
@@ -24,7 +27,7 @@ import { connectVoiceAgent } from "./voiceAgent";
 import "./App.css";
 import "./theme.css";
 
-type Screen = "home" | "voice" | "weather" | "settings";
+type Screen = "home" | "voice" | "weather" | "settings" | "help";
 
 type WeatherResult = {
   current?: {
@@ -58,7 +61,8 @@ function App() {
   const [recentChats, setRecentChats] = useState<ChatRecord[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const activeChatIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     return watchAuthState(async (currentUser) => {
@@ -112,14 +116,14 @@ function App() {
   }, [user]);
 
   const filteredChats = useMemo(() => {
-    const normalizedSearch = searchText.trim().toLowerCase();
+    const search = searchText.trim().toLowerCase();
 
-    if (!normalizedSearch) {
+    if (!search) {
       return recentChats;
     }
 
     return recentChats.filter((chat) =>
-      chat.title.toLowerCase().includes(normalizedSearch),
+      chat.title.toLowerCase().includes(search),
     );
   }, [recentChats, searchText]);
 
@@ -140,45 +144,68 @@ function App() {
     );
   }
 
-  const handleNewChat = async () => {
+  const handleNewChat = () => {
     setTranscripts([]);
     setStatus("Not connected");
     setWeather(null);
     setWeatherStatus("");
     setScreen("home");
-
-    setChatLoading(true);
-
-    try {
-      const chatId = await createChat(user.uid);
-
-      setRecentChats((current) => [
-        {
-          id: chatId,
-          title: "New conversation",
-          messages: [],
-        },
-        ...current,
-      ]);
-    } catch (error) {
-      console.error("Could not create chat:", error);
-    } finally {
-      setChatLoading(false);
-    }
+    setActiveChatId(null);
+    activeChatIdRef.current = null;
   };
 
   const handleOpenChat = (chat: ChatRecord) => {
     const messages = chat.messages ?? [];
 
+    setActiveChatId(chat.id);
+    activeChatIdRef.current = chat.id;
+
     setTranscripts(
       messages.map((message) => {
-        const label = message.role === "user" ? "You" : "WaNhasi";
-        return `${label}: ${message.text}`;
+        const speaker = message.role === "user" ? "You" : "WaNhasi";
+        return `${speaker}: ${message.text}`;
       }),
     );
 
     setStatus("Chat loaded");
     setScreen("voice");
+  };
+
+  const saveVoiceMessage = async (
+    role: "user" | "assistant",
+    text: string,
+  ) => {
+    let chatId = activeChatIdRef.current;
+
+    if (!chatId && role === "user") {
+      const title = text
+        .trim()
+        .split(/\s+/)
+        .slice(0, 7)
+        .join(" ");
+
+      chatId = await createChat(user.uid, title);
+      activeChatIdRef.current = chatId;
+      setActiveChatId(chatId);
+
+      setRecentChats((current) => [
+        {
+          id: chatId as string,
+          title,
+          messages: [],
+        },
+        ...current,
+      ]);
+    }
+
+    if (!chatId) {
+      return;
+    }
+
+    await saveChatMessage(user.uid, chatId, {
+      role,
+      text,
+    });
   };
 
   const handleStartVoice = async () => {
@@ -192,16 +219,28 @@ function App() {
         }
 
         if (message.type === "transcript.user" && message.text) {
-          setTranscripts((current) => {
-            const line = `You: ${message.text}`;
-            return current.at(-1) === line ? current : [...current, line];
+          const text = message.text.trim();
+          const line = `You: ${text}`;
+
+          setTranscripts((current) =>
+            current.at(-1) === line ? current : [...current, line],
+          );
+
+          void saveVoiceMessage("user", text).catch((error) => {
+            console.error("Could not save user message:", error);
           });
         }
 
         if (message.type === "transcript.agent" && message.text) {
-          setTranscripts((current) => {
-            const line = `WaNhasi: ${message.text}`;
-            return current.at(-1) === line ? current : [...current, line];
+          const text = message.text.trim();
+          const line = `WaNhasi: ${text}`;
+
+          setTranscripts((current) =>
+            current.at(-1) === line ? current : [...current, line],
+          );
+
+          void saveVoiceMessage("assistant", text).catch((error) => {
+            console.error("Could not save assistant message:", error);
           });
         }
       });
@@ -253,10 +292,6 @@ function App() {
     );
   };
 
-  const handleLogout = async () => {
-    await logoutUser();
-  };
-
   const toggleMode = () => {
     setMode((currentMode) =>
       currentMode === "dark" ? "light" : "dark",
@@ -288,15 +323,9 @@ function App() {
           </button>
         </div>
 
-        <button
-          className="new-chat-button"
-          onClick={() => void handleNewChat()}
-          disabled={chatLoading}
-        >
+        <button className="new-chat-button" onClick={handleNewChat}>
           <Plus size={18} />
-          {sidebarOpen && (
-            <span>{chatLoading ? "Creating..." : "New chat"}</span>
-          )}
+          {sidebarOpen && <span>New chat</span>}
         </button>
 
         <nav className="sidebar-nav">
@@ -348,22 +377,17 @@ function App() {
             {sidebarOpen && <span>Settings</span>}
           </button>
 
-          <button type="button">
+          <button type="button" onClick={() => setScreen("help")}>
             <UserCircle size={17} />
             {sidebarOpen && <span>Help</span>}
           </button>
         </nav>
 
-        <button className="profile-button" onClick={handleLogout}>
-          <UserCircle size={20} />
-
-          {sidebarOpen && (
-            <span>
-              <strong>{user.email ?? "Your profile"}</strong>
-              <small>Sign out</small>
-            </span>
-          )}
-        </button>
+        <ProfileMenu
+          email={user.email ?? "Your profile"}
+          onSwitchProfile={logoutUser}
+          onSignOut={logoutUser}
+        />
       </aside>
 
       <div className="app-main">
@@ -469,6 +493,10 @@ function App() {
                 </button>
               </div>
             </section>
+          )}
+
+          {screen === "help" && (
+            <HelpScreen onBack={() => setScreen("home")} />
           )}
         </main>
       </div>
