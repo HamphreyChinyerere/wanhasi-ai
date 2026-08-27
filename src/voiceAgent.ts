@@ -10,9 +10,11 @@ type VoiceMessage = {
 
 class MockVoiceSocket extends EventTarget {
   readyState = 1;
+  private onMessage?: (message: VoiceMessage) => void;
 
-  constructor(private onMessage?: (message: VoiceMessage) => void) {
+  constructor(onMessage?: (message: VoiceMessage) => void) {
     super();
+    this.onMessage = onMessage;
   }
 
   send(payload: string) {
