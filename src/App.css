@@ -415,3 +415,191 @@ h1 {
   display: grid;
   gap: 4px;
 }
+
+.profile-menu {
+  position: relative;
+  margin-top: auto;
+}
+
+.profile-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 25%);
+}
+
+.profile-popover-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  overflow: hidden;
+}
+
+.profile-popover-user span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-popover button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.profile-popover button:hover {
+  background: var(--surface-hover);
+  color: var(--accent);
+}
+
+.profile-chevron {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.profile-chevron.open {
+  transform: rotate(180deg);
+}
+
+.help-screen {
+  max-width: 720px;
+}
+
+.help-card {
+  margin-top: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.help-card h2 {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.help-card p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.help-card a {
+  display: inline-block;
+  margin-top: 14px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.help-screen .settings-theme-button {
+  display: block;
+  margin-top: 24px;
+}
+
+.recent-chat-row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+}
+
+.recent-chat-row .recent-item {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.recent-chat-row .recent-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-chat-row .recent-item:hover {
+  background: var(--surface-hover);
+  color: var(--accent);
+}
+
+.chat-menu-button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.chat-menu-button:hover {
+  background: var(--surface-hover);
+  color: var(--accent);
+}
+
+.chat-actions-menu {
+  position: absolute;
+  top: 36px;
+  right: 4px;
+  z-index: 20;
+  display: grid;
+  width: 140px;
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 25%);
+}
+
+.chat-actions-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.chat-actions-menu button:hover {
+  background: var(--surface-hover);
+  color: var(--accent);
+}
+
+.chat-actions-menu .delete-chat-action:hover {
+  color: #d96b5f;
+}
+
+.rename-chat-input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--background);
+  color: var(--text);
+}

@@ -52,7 +52,7 @@ function App() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
 
-  const [screen, setScreen] = useState<Screen>("home");
+  const [screen, setScreen] = useState<Screen>("voice");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mode, setMode] = useState<"dark" | "light">(() => {
     return localStorage.getItem("wanhasi-mode") === "light"
@@ -60,8 +60,10 @@ function App() {
       : "dark";
   });
 
-  const [status, setStatus] = useState("Not connected");
-  const [transcripts, setTranscripts] = useState<string[]>([]);
+  const [status, setStatus] = useState("Ready to talk");
+  const [transcripts, setTranscripts] = useState<string[]>([
+    "WaNhasi: Hello, I am WaNhasi. How can I help you today?",
+  ]);
   const [weather, setWeather] = useState<WeatherResult | null>(null);
   const [weatherStatus, setWeatherStatus] = useState("");
 
@@ -147,14 +149,16 @@ function App() {
   }
 
   const handleNewChat = () => {
-    setTranscripts([]);
-    setStatus("Not connected");
-    setWeather(null);
-    setWeatherStatus("");
-    setActiveChatId(null);
-    activeChatIdRef.current = null;
-    setScreen("home");
-  };
+      setTranscripts([
+        "WaNhasi: Hello, I am WaNhasi. How can I help you today?",
+      ]);
+      setStatus("Ready to talk");
+      setWeather(null);
+      setWeatherStatus("");
+      setActiveChatId(null);
+      activeChatIdRef.current = null;
+      setScreen("voice");
+    };
 
   const handleOpenChat = (chat: ChatRecord) => {
     activeChatIdRef.current = chat.id;
@@ -602,7 +606,7 @@ function App() {
           )}
 
           {screen === "help" && (
-            <HelpScreen onBack={() => setScreen("home")} />
+            <HelpScreen onBack={() => setScreen("voice")} />
           )}
         </main>
       </div>
