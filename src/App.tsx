@@ -2,16 +2,12 @@ import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import {
-  CloudSun,
   Clock3,
-  LayoutDashboard,
+  CloudSun,
   Menu,
   Mic,
-  Moon,
-  Plug,
   Plus,
   Settings,
-  Sun,
   UserCircle,
 } from "lucide-react";
 import AuthScreen from "./AuthScreen";
@@ -22,7 +18,7 @@ import { connectVoiceAgent } from "./voiceAgent";
 import "./App.css";
 import "./theme.css";
 
-type Screen = "home" | "voice" | "weather";
+type Screen = "home" | "voice" | "weather" | "settings";
 
 type WeatherResult = {
   current?: {
@@ -98,6 +94,14 @@ function App() {
     );
   }
 
+  const handleNewChat = () => {
+    setTranscripts([]);
+    setStatus("Not connected");
+    setWeather(null);
+    setWeatherStatus("");
+    setScreen("home");
+  };
+
   const handleStartVoice = async () => {
     try {
       setScreen("voice");
@@ -156,6 +160,7 @@ function App() {
           }
 
           const data = (await response.json()) as WeatherResult;
+
           setWeather(data);
           setWeatherStatus("Weather updated");
         } catch (error) {
@@ -169,19 +174,19 @@ function App() {
     );
   };
 
-  const handleNewChat = () => {
-    setTranscripts([]);
-    setStatus("Not connected");
-    setScreen("home");
-  };
-
   const handleLogout = async () => {
     await logoutUser();
   };
 
+  const toggleMode = () => {
+    setMode((currentMode) =>
+      currentMode === "dark" ? "light" : "dark",
+    );
+  };
+
   return (
     <div className="app-shell">
-            <aside className={sidebarOpen ? "sidebar" : "sidebar collapsed"}>
+      <aside className={sidebarOpen ? "sidebar" : "sidebar collapsed"}>
         <div className="sidebar-header">
           <div className="sidebar-brand">
             <img
@@ -191,68 +196,62 @@ function App() {
             />
           </div>
 
-          <div className="sidebar-controls">
-            <button
-              className="icon-button"
-              onClick={() => setMode(mode === "dark" ? "light" : "dark")}
-              aria-label="Toggle light and dark mode"
-            >
-              {mode === "dark" ? <Sun size={17} /> : <Moon size={17} />}
-            </button>
-
-            <button
-              className="icon-button"
-              onClick={() => setSidebarOpen(false)}
-              aria-label="Collapse sidebar"
-            >
-              <Menu size={18} />
-            </button>
-          </div>
+          <button
+            className="icon-button"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Collapse sidebar"
+          >
+            <Menu size={18} />
+          </button>
         </div>
 
         <button className="new-chat-button" onClick={handleNewChat}>
           <Plus size={18} />
-          <span>New chat</span>
+          {sidebarOpen && <span>New chat</span>}
         </button>
 
         <nav className="sidebar-nav">
-          <button>
+          <button type="button">
             <Clock3 size={18} />
-            <span>Search chats</span>
+            {sidebarOpen && <span>Search chats</span>}
           </button>
 
-          <button>
-            <Plug size={18} />
-            <span>Plugins</span>
+          <button type="button" onClick={() => setScreen("settings")}>
+            <Settings size={18} />
+            {sidebarOpen && <span>Settings</span>}
           </button>
         </nav>
 
         <div className="sidebar-spacer" />
 
-        <nav className="sidebar-footer-links">
-          <button>
-            <Plus size={17} />
-            <span>See plans and pricing</span>
-          </button>
+        {sidebarOpen && (
+          <nav className="sidebar-footer-links">
+            <button type="button">
+              <Plus size={17} />
+              <span>See plans and pricing</span>
+            </button>
 
-          <button>
-            <Settings size={17} />
-            <span>Settings</span>
-          </button>
+            <button type="button" onClick={() => setScreen("settings")}>
+              <Settings size={17} />
+              <span>Settings</span>
+            </button>
 
-          <button>
-            <UserCircle size={17} />
-            <span>Help</span>
-          </button>
-        </nav>
+            <button type="button">
+              <UserCircle size={17} />
+              <span>Help</span>
+            </button>
+          </nav>
+        )}
 
         <button className="profile-button" onClick={handleLogout}>
           <UserCircle size={20} />
 
-          <span>
-            <strong>{user.email ?? "Your profile"}</strong>
-            <small>Sign out</small>
-          </span>
+          {sidebarOpen && (
+            <span>
+              <strong>{user.email ?? "Your profile"}</strong>
+              <small>Sign out</small>
+            </span>
+          )}
         </button>
       </aside>
 
@@ -347,33 +346,29 @@ function App() {
               )}
             </section>
           )}
+
+          {screen === "settings" && (
+            <section className="settings-screen">
+              <span className="eyebrow">SETTINGS</span>
+              <h1>Settings</h1>
+
+              <div className="settings-card">
+                <div>
+                  <strong>Appearance</strong>
+                  <p>Choose how WaNhasi looks.</p>
+                </div>
+
+                <button
+                  className="settings-theme-button"
+                  onClick={toggleMode}
+                >
+                  Switch to{" "}
+                  {mode === "dark" ? "light mode" : "dark mode"}
+                </button>
+              </div>
+            </section>
+          )}
         </main>
-
-        <nav className="bottom-nav">
-          <button
-            className={screen === "home" ? "nav-item active" : "nav-item"}
-            onClick={() => setScreen("home")}
-          >
-            <LayoutDashboard size={19} />
-            <span>Home</span>
-          </button>
-
-          <button
-            className={screen === "voice" ? "nav-item active" : "nav-item"}
-            onClick={() => setScreen("voice")}
-          >
-            <Mic size={19} />
-            <span>Speak</span>
-          </button>
-
-          <button
-            className={screen === "weather" ? "nav-item active" : "nav-item"}
-            onClick={() => setScreen("weather")}
-          >
-            <CloudSun size={19} />
-            <span>Weather</span>
-          </button>
-        </nav>
       </div>
     </div>
   );
