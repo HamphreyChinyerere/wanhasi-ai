@@ -1,5 +1,6 @@
 import {
   addDoc,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -21,6 +22,7 @@ export type ChatMessage = {
 export type ChatRecord = {
   id: string;
   title: string;
+  pinned?: boolean;
   messages: ChatMessage[];
   createdAt?: unknown;
   updatedAt?: unknown;
@@ -30,12 +32,17 @@ function chatsCollection(userId: string) {
   return collection(db, "users", userId, "chats");
 }
 
+function chatDocument(userId: string, chatId: string) {
+  return doc(db, "users", userId, "chats", chatId);
+}
+
 export async function createChat(
   userId: string,
-  title = "New conversation",
+  title: string,
 ) {
   const reference = await addDoc(chatsCollection(userId), {
     title,
+    pinned: false,
     messages: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -55,10 +62,22 @@ export async function listRecentChats(
 
   const snapshot = await getDocs(chatsQuery);
 
-  return snapshot.docs.map((chat) => ({
+  const chats = snapshot.docs.map((chat) => ({
     id: chat.id,
     ...(chat.data() as Omit<ChatRecord, "id">),
   }));
+
+  return chats.sort((first, second) => {
+    if (first.pinned && !second.pinned) {
+      return -1;
+    }
+
+    if (!first.pinned && second.pinned) {
+      return 1;
+    }
+
+    return 0;
+  });
 }
 
 export async function saveChatMessage(
@@ -66,21 +85,12 @@ export async function saveChatMessage(
   chatId: string,
   message: ChatMessage,
 ) {
-  const chatReference = doc(db, "users", userId, "chats", chatId);
-
-  const snapshot = await getDocs(
-    query(chatsCollection(userId), limit(50)),
-  );
-
-  const existingChat = snapshot.docs.find(
-    (item) => item.id === chatId,
-  );
-
-  const existingMessages =
-    (existingChat?.data().messages as ChatMessage[] | undefined) ?? [];
-
-  await updateDoc(chatReference, {
-    messages: [...existingMessages, message],
+  await updateDoc(chatDocument(userId, chatId), {
+    messages: arrayUnion({
+      role: message.role,
+      text: message.text,
+      createdAt: new Date().toISOString(),
+    }),
     updatedAt: serverTimestamp(),
   });
 }
@@ -90,12 +100,26 @@ export async function renameChat(
   chatId: string,
   title: string,
 ) {
-  await updateDoc(doc(db, "users", userId, "chats", chatId), {
-    title,
+  await updateDoc(chatDocument(userId, chatId), {
+    title: title.trim() || "Untitled conversation",
     updatedAt: serverTimestamp(),
   });
 }
 
-export async function removeChat(userId: string, chatId: string) {
-  await deleteDoc(doc(db, "users", userId, "chats", chatId));
+export async function toggleChatPin(
+  userId: string,
+  chatId: string,
+  pinned: boolean,
+) {
+  await updateDoc(chatDocument(userId, chatId), {
+    pinned,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function removeChat(
+  userId: string,
+  chatId: string,
+) {
+  await deleteDoc(chatDocument(userId, chatId));
 }
