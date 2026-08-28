@@ -1,6 +1,7 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+import chatRouter from "./chatRoute";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3001);
@@ -149,6 +150,8 @@ app.get("/api/weather/current", async (request, response) => {
     });
   }
 });
+
+app.use("/api", chatRouter);
 
 app.listen(port, () => {
   console.log(`Backend running at http://localhost:${port}`);
