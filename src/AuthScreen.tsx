@@ -1,11 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import {
-  Eye,
-  EyeOff,
-  LockKeyhole,
-  Mail,
-} from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import {
   loginUser,
   registerUser,
@@ -56,14 +51,17 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
     setError("");
     setLoading(true);
 
     try {
+      const normalizedEmail = email.trim();
+
       if (isRegistering) {
-        await registerUser(email.trim(), password);
+        await registerUser(normalizedEmail, password);
       } else {
-        await loginUser(email.trim(), password);
+        await loginUser(normalizedEmail, password);
       }
 
       onAuthenticated();
@@ -92,6 +90,13 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
     }
   };
 
+  const toggleAuthMode = () => {
+    setIsRegistering((current) => !current);
+    setEmail("");
+    setPassword("");
+    setError("");
+  };
+
   return (
     <main className="auth-page">
       <section className="auth-card">
@@ -114,8 +119,8 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
         <button
           type="button"
           className="google-button"
-          onClick={handleGoogleSignIn}
-          disabled={googleLoading}
+          onClick={() => void handleGoogleSignIn()}
+          disabled={googleLoading || loading}
         >
           <GoogleIcon />
           {googleLoading ? "Connecting..." : "Continue with Google"}
@@ -128,13 +133,14 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
         <form onSubmit={handleSubmit} className="auth-form">
           <label>
             Email address
+
             <div className="auth-input">
               <Mail size={18} />
+
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@example.com"
                 autoComplete="email"
                 required
               />
@@ -143,24 +149,31 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
 
           <label>
             Password
+
             <div className="auth-input">
               <LockKeyhole size={18} />
+
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="At least 6 characters"
+                placeholder={
+                  isRegistering ? "At least 6 characters" : undefined
+                }
                 autoComplete={
                   isRegistering ? "new-password" : "current-password"
                 }
                 minLength={6}
                 required
               />
+
               <button
                 type="button"
                 className="password-toggle"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword((current) => !current)}
+                aria-label={
+                  showPassword ? "Hide password" : "Show password"
+                }
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -172,7 +185,7 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
           <button
             type="submit"
             className="auth-submit"
-            disabled={loading}
+            disabled={loading || googleLoading}
           >
             {loading
               ? "Please wait..."
@@ -183,23 +196,20 @@ function AuthScreen({ onAuthenticated }: AuthScreenProps) {
         </form>
 
         <button
-            type="button"
-            className="auth-switch"
-            onClick={() => {
-                setIsRegistering(!isRegistering);
-                setError("");
-            }}
-            >
-            {isRegistering ? (
-                <span>
-                Already have an account? <strong>Sign in</strong>
-                </span>
-            ) : (
-                <span>
-                New to <strong>WaNhasi</strong>? Create an account
-                </span>
-            )}
-            </button>
+          type="button"
+          className="auth-switch"
+          onClick={toggleAuthMode}
+        >
+          {isRegistering ? (
+            <span>
+              Already have an account? <strong>Sign in</strong>
+            </span>
+          ) : (
+            <span>
+              New to <strong>WaNhasi</strong>? Create an account
+            </span>
+          )}
+        </button>
       </section>
     </main>
   );
