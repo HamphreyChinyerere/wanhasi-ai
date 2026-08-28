@@ -93,7 +93,13 @@ function App() {
       setProfileLoading(true);
 
       try {
-        const profile = await getDoc(doc(db, "users", currentUser.uid));
+        const profile = await getDoc(
+          doc(db, "users", currentUser.uid),
+        );
+
+        console.log("Authenticated UID:", currentUser.uid);
+        console.log("Profile exists:", profile.exists());
+        console.log("Profile data:", profile.data());
 
         setOnboardingComplete(
           profile.exists() &&
@@ -115,7 +121,9 @@ function App() {
   }, [mode]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
     void listRecentChats(user.uid)
       .then(setRecentChats)
@@ -127,7 +135,9 @@ function App() {
   const filteredChats = useMemo(() => {
     const search = searchText.trim().toLowerCase();
 
-    if (!search) return recentChats;
+    if (!search) {
+      return recentChats;
+    }
 
     return recentChats.filter((chat) =>
       chat.title.toLowerCase().includes(search),
@@ -158,6 +168,7 @@ function App() {
     setWeatherStatus("");
     activeChatIdRef.current = null;
     setOpenChatMenu(null);
+    setRenamingChatId(null);
     setScreen("voice");
   };
 
@@ -216,20 +227,30 @@ function App() {
       throw new Error("Microphone access is not supported.");
     }
 
-    await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
+    const microphoneStream =
+      await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+
+    microphoneStream
+      .getTracks()
+      .forEach((track) => track.stop());
 
     if (!navigator.geolocation) {
-      throw new Error("Location access is not supported.");
+      console.warn("Location access is unavailable.");
+      return;
     }
 
-    await new Promise<void>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
-        () => resolve(),
-        (error) => reject(error),
-      );
-    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          () => resolve(),
+          (error) => reject(error),
+        );
+      });
+    } catch (error) {
+      console.warn("Location permission is optional:", error);
+    }
   };
 
   const handleStartVoice = async () => {
@@ -288,7 +309,7 @@ function App() {
         setStatus("Connection failed");
       });
     } catch (error) {
-      setStatus("Microphone or location permission is required.");
+      setStatus("Microphone permission is required.");
       console.error(error);
     }
   };
@@ -332,7 +353,9 @@ function App() {
   const handleRename = async (chat: ChatRecord) => {
     const title = renameValue.trim();
 
-    if (!title) return;
+    if (!title) {
+      return;
+    }
 
     await renameChat(user.uid, chat.id, title);
 
@@ -549,7 +572,11 @@ function App() {
               <h1>Talk to WaNhasi</h1>
 
               <button
-                className="voice-orb"
+                className={
+                    status === "Connected to WaNhasi"
+                      ? "voice-orb is-connected"
+                      : "voice-orb"
+                  }
                 onClick={() => void handleStartVoice()}
               >
                 <Mic size={42} />

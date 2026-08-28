@@ -722,3 +722,24 @@ h1 {
   background: var(--surface);
   box-shadow: 0 10px 24px rgb(0 0 0 / 30%);
 }
+
+.voice-orb.is-connected {
+  animation: voice-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes voice-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 16px rgb(212 167 44 / 12%),
+      0 0 55px rgb(212 167 44 / 30%);
+  }
+
+  50% {
+    transform: scale(1.06);
+    box-shadow:
+      0 0 0 25px rgb(212 167 44 / 8%),
+      0 0 75px rgb(212 167 44 / 45%);
+  }
+}
