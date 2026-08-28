@@ -32,8 +32,9 @@ import { db } from "./firebase";
 import { connectVoiceAgent } from "./voiceAgent";
 import "./App.css";
 import "./theme.css";
+import UserHistoryScreen from "./UserHistoryScreen";
 
-type Screen = "voice" | "weather" | "settings" | "help";
+type Screen = "voice" | "weather" | "settings" | "help" | "history";
 
 type TranscriptMessage = {
   role: "user" | "assistant";
