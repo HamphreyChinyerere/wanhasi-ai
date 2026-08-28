@@ -2,8 +2,8 @@ import { Router } from "express";
 import {
   buildFarmSystemPrompt,
   type FarmProfile,
-} from "../../src/farmAssistant";
-import { generateFarmResponse } from "./geminiService";
+} from "./farmAssistant.js";
+import { generateFarmResponse } from "./geminiService.js";
 
 const chatRouter = Router();
 
