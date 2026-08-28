@@ -59,6 +59,7 @@ function App() {
 
   const [screen, setScreen] = useState<Screen>("voice");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
   const [mode, setMode] = useState<"dark" | "light">(() => {
     return localStorage.getItem("wanhasi-mode") === "light"
       ? "light"
@@ -73,7 +74,6 @@ function App() {
   const [recentChats, setRecentChats] = useState<ChatRecord[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [openChatMenu, setOpenChatMenu] = useState<string | null>(null);
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -115,9 +115,7 @@ function App() {
   }, [mode]);
 
   useEffect(() => {
-    if (!user) {
-      return;
-    }
+    if (!user) return;
 
     void listRecentChats(user.uid)
       .then(setRecentChats)
@@ -129,9 +127,7 @@ function App() {
   const filteredChats = useMemo(() => {
     const search = searchText.trim().toLowerCase();
 
-    if (!search) {
-      return recentChats;
-    }
+    if (!search) return recentChats;
 
     return recentChats.filter((chat) =>
       chat.title.toLowerCase().includes(search),
@@ -160,14 +156,13 @@ function App() {
     setStatus("Ready to talk");
     setWeather(null);
     setWeatherStatus("");
-    setActiveChatId(null);
     activeChatIdRef.current = null;
+    setOpenChatMenu(null);
     setScreen("voice");
   };
 
   const handleOpenChat = (chat: ChatRecord) => {
     activeChatIdRef.current = chat.id;
-    setActiveChatId(chat.id);
 
     setTranscripts(
       (chat.messages ?? []).map((message) => ({
@@ -196,7 +191,6 @@ function App() {
 
       chatId = await createChat(user.uid, title);
       activeChatIdRef.current = chatId;
-      setActiveChatId(chatId);
 
       setRecentChats((current) => [
         {
@@ -209,37 +203,39 @@ function App() {
       ]);
     }
 
-    if (!chatId) {
-      return;
+    if (chatId) {
+      await saveChatMessage(user.uid, chatId, {
+        role,
+        text,
+      });
     }
-
-    await saveChatMessage(user.uid, chatId, {
-      role,
-      text,
-    });
   };
 
   const requestDevicePermissions = async () => {
-  await navigator.mediaDevices.getUserMedia({
-    audio: true,
-  });
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Microphone access is not supported.");
+    }
 
-  if (!navigator.geolocation) {
-    throw new Error("Location is not supported on this device.");
-  }
+    await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
 
-  await new Promise<void>((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(
-      () => resolve(),
-      (error) => reject(error),
-    );
-  });
-};
+    if (!navigator.geolocation) {
+      throw new Error("Location access is not supported.");
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        () => resolve(),
+        (error) => reject(error),
+      );
+    });
+  };
 
   const handleStartVoice = async () => {
     try {
       await requestDevicePermissions();
-      
+
       setScreen("voice");
       setStatus("Connecting...");
 
@@ -272,11 +268,11 @@ function App() {
           setTranscripts((current) => {
             const previous = current.at(-1);
 
-            if (
-              previous?.role === "assistant" &&
-              previous.text === text
-            ) {
-              return current;
+            if (previous?.role === "assistant") {
+              return [
+                ...current.slice(0, -1),
+                { role: "assistant", text },
+              ];
             }
 
             return [...current, { role: "assistant", text }];
@@ -292,7 +288,7 @@ function App() {
         setStatus("Connection failed");
       });
     } catch (error) {
-      setStatus("Connection failed");
+      setStatus("Microphone or location permission is required.");
       console.error(error);
     }
   };
@@ -336,9 +332,7 @@ function App() {
   const handleRename = async (chat: ChatRecord) => {
     const title = renameValue.trim();
 
-    if (!title) {
-      return;
-    }
+    if (!title) return;
 
     await renameChat(user.uid, chat.id, title);
 
@@ -360,7 +354,6 @@ function App() {
     );
 
     if (activeChatIdRef.current === chatId) {
-      setActiveChatId(null);
       activeChatIdRef.current = null;
       setTranscripts([]);
       setScreen("voice");
@@ -490,6 +483,7 @@ function App() {
                   {openChatMenu === chat.id && (
                     <div className="chat-actions-menu">
                       <button
+                        type="button"
                         onClick={() => {
                           setRenameValue(chat.title);
                           setRenamingChatId(chat.id);
@@ -500,12 +494,16 @@ function App() {
                         Rename
                       </button>
 
-                      <button onClick={() => void handleTogglePin(chat)}>
+                      <button
+                        type="button"
+                        onClick={() => void handleTogglePin(chat)}
+                      >
                         <Pin size={14} />
                         {chat.pinned ? "Unpin" : "Pin"}
                       </button>
 
                       <button
+                        type="button"
                         className="delete-chat-action"
                         onClick={() => void handleDelete(chat.id)}
                       >
