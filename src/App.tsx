@@ -3,6 +3,7 @@ import type { User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import {
   CloudSun,
+  Database,
   Menu,
   Mic,
   MoreHorizontal,
@@ -14,10 +15,15 @@ import {
   Trash2,
   UserCircle,
 } from "lucide-react";
+
 import AuthScreen from "./AuthScreen";
 import HelpScreen from "./HelpScreen";
 import OnboardingScreen from "./OnboardingScreen";
 import ProfileMenu from "./ProfileMenu";
+import AccountSettingsScreen from "./AccountSettingsScreen";
+import ChatComposer from "./ChatComposer";
+import UserHistoryScreen from "./UserHistoryScreen";
+
 import {
   createChat,
   listRecentChats,
@@ -27,14 +33,22 @@ import {
   toggleChatPin,
   type ChatRecord,
 } from "./chatStore";
+
 import { logoutUser, watchAuthState } from "./auth";
 import { db } from "./firebase";
 import { connectVoiceAgent } from "./voiceAgent";
+import { loadFarmMemory } from "./farmMemory";
+import type { FarmProfile } from "./farmAssistant";
+
 import "./App.css";
 import "./theme.css";
-import UserHistoryScreen from "./UserHistoryScreen";
 
-type Screen = "voice" | "weather" | "settings" | "help" | "history";
+type Screen =
+  | "voice"
+  | "weather"
+  | "settings"
+  | "help"
+  | "history";
 
 type TranscriptMessage = {
   role: "user" | "assistant";
@@ -71,8 +85,11 @@ function App() {
   const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([]);
   const [weather, setWeather] = useState<WeatherResult | null>(null);
   const [weatherStatus, setWeatherStatus] = useState("");
+  const [typedLoading, setTypedLoading] = useState(false);
 
+  const [farmProfile, setFarmProfile] = useState<FarmProfile | null>(null);
   const [recentChats, setRecentChats] = useState<ChatRecord[]>([]);
+
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [openChatMenu, setOpenChatMenu] = useState<string | null>(null);
@@ -87,6 +104,8 @@ function App() {
 
       if (!currentUser) {
         setOnboardingComplete(false);
+        setFarmProfile(null);
+        setRecentChats([]);
         setAuthLoading(false);
         return;
       }
@@ -94,18 +113,17 @@ function App() {
       setProfileLoading(true);
 
       try {
-        const profile = await getDoc(
+        const profileSnapshot = await getDoc(
           doc(db, "users", currentUser.uid),
         );
 
-        console.log("Authenticated UID:", currentUser.uid);
-        console.log("Profile exists:", profile.exists());
-        console.log("Profile data:", profile.data());
-
         setOnboardingComplete(
-          profile.exists() &&
-            profile.data().onboardingComplete === true,
+          profileSnapshot.exists() &&
+            profileSnapshot.data().onboardingComplete === true,
         );
+
+        const savedFarmProfile = await loadFarmMemory(currentUser.uid);
+        setFarmProfile(savedFarmProfile);
       } catch (error) {
         console.error("Could not load user profile:", error);
         setOnboardingComplete(false);
@@ -162,11 +180,57 @@ function App() {
     );
   }
 
+  const updateChatMessages = (
+    chatId: string,
+    message: TranscriptMessage,
+  ) => {
+    setRecentChats((current) =>
+      current.map((chat) =>
+        chat.id === chatId
+          ? {
+              ...chat,
+              messages: [...(chat.messages ?? []), message],
+            }
+          : chat,
+      ),
+    );
+  };
+
+  const ensureChat = async (firstMessage: string) => {
+    let chatId = activeChatIdRef.current;
+
+    if (chatId) {
+      return chatId;
+    }
+
+    const title = firstMessage
+      .trim()
+      .split(/\s+/)
+      .slice(0, 7)
+      .join(" ");
+
+    chatId = await createChat(user.uid, title);
+    activeChatIdRef.current = chatId;
+
+    setRecentChats((current) => [
+      {
+        id: chatId as string,
+        title,
+        pinned: false,
+        messages: [],
+      },
+      ...current,
+    ]);
+
+    return chatId;
+  };
+
   const handleNewChat = () => {
     setTranscripts([]);
     setStatus("Ready to talk");
     setWeather(null);
     setWeatherStatus("");
+    setTypedLoading(false);
     activeChatIdRef.current = null;
     setOpenChatMenu(null);
     setRenamingChatId(null);
@@ -192,35 +256,21 @@ function App() {
     role: "user" | "assistant",
     text: string,
   ) => {
-    let chatId = activeChatIdRef.current;
+    const chatId =
+      role === "user"
+        ? await ensureChat(text)
+        : activeChatIdRef.current;
 
-    if (!chatId && role === "user") {
-      const title = text
-        .trim()
-        .split(/\s+/)
-        .slice(0, 7)
-        .join(" ");
-
-      chatId = await createChat(user.uid, title);
-      activeChatIdRef.current = chatId;
-
-      setRecentChats((current) => [
-        {
-          id: chatId as string,
-          title,
-          pinned: false,
-          messages: [],
-        },
-        ...current,
-      ]);
+    if (!chatId) {
+      return;
     }
 
-    if (chatId) {
-      await saveChatMessage(user.uid, chatId, {
-        role,
-        text,
-      });
-    }
+    await saveChatMessage(user.uid, chatId, {
+      role,
+      text,
+    });
+
+    updateChatMessages(chatId, { role, text });
   };
 
   const requestDevicePermissions = async () => {
@@ -228,17 +278,13 @@ function App() {
       throw new Error("Microphone access is not supported.");
     }
 
-    const microphoneStream =
-      await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
 
-    microphoneStream
-      .getTracks()
-      .forEach((track) => track.stop());
+    stream.getTracks().forEach((track) => track.stop());
 
     if (!navigator.geolocation) {
-      console.warn("Location access is unavailable.");
       return;
     }
 
@@ -249,8 +295,8 @@ function App() {
           (error) => reject(error),
         );
       });
-    } catch (error) {
-      console.warn("Location permission is optional:", error);
+    } catch {
+      console.warn("Location permission is optional.");
     }
   };
 
@@ -262,9 +308,19 @@ function App() {
       setStatus("Connecting...");
 
       const socket = await connectVoiceAgent((message) => {
+        console.log("AssemblyAI voice event:", message);
+
         if (message.type === "session.ready") {
           setStatus("Connected to WaNhasi");
         }
+
+          if (message.type === "reply.started") {
+            setStatus("WaNhasi is speaking...");
+          }
+
+          if (message.type === "reply.done") {
+            setStatus("Ready to talk");
+          }
 
         if (message.type === "transcript.user" && message.text) {
           const text = message.text.trim();
@@ -315,6 +371,70 @@ function App() {
     }
   };
 
+  const handleSendTyped = async (message: string) => {
+    const prompt = message.trim();
+
+    if (!prompt || typedLoading) {
+      return;
+    }
+
+    setScreen("voice");
+    setTypedLoading(true);
+
+    const chatId = await ensureChat(prompt);
+
+    const userMessage: TranscriptMessage = {
+      role: "user",
+      text: prompt,
+    };
+
+    setTranscripts((current) => [...current, userMessage]);
+    await saveChatMessage(user.uid, chatId, userMessage);
+    updateChatMessages(chatId, userMessage);
+
+    try {
+      const response = await fetch("http://localhost:3001/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          farmProfile,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Gemini request failed.");
+      }
+
+      const result = (await response.json()) as { text?: string };
+      const answer =
+        result.text?.trim() ||
+        "I could not generate a response right now.";
+
+      const assistantMessage: TranscriptMessage = {
+        role: "assistant",
+        text: answer,
+      };
+
+      setTranscripts((current) => [...current, assistantMessage]);
+      await saveChatMessage(user.uid, chatId, assistantMessage);
+      updateChatMessages(chatId, assistantMessage);
+    } catch (error) {
+      console.error("Typed chat failed:", error);
+
+      const errorMessage: TranscriptMessage = {
+        role: "assistant",
+        text: "I could not connect to WaNhasi right now. Please try again.",
+      };
+
+      setTranscripts((current) => [...current, errorMessage]);
+    } finally {
+      setTypedLoading(false);
+    }
+  };
+
   const handleCurrentWeather = () => {
     if (!navigator.geolocation) {
       setWeatherStatus("Location is not supported on this device.");
@@ -335,14 +455,14 @@ function App() {
           );
 
           if (!response.ok) {
-            throw new Error("Weather request failed");
+            throw new Error("Weather request failed.");
           }
 
           setWeather((await response.json()) as WeatherResult);
           setWeatherStatus("Weather updated");
         } catch (error) {
-          setWeatherStatus("Could not load weather.");
           console.error(error);
+          setWeatherStatus("Could not load weather.");
         }
       },
       () => {
@@ -424,15 +544,22 @@ function App() {
           )}
 
           <button
+            type="button"
             className="icon-button sidebar-toggle"
             onClick={() => setSidebarOpen((current) => !current)}
-            aria-label={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
+            aria-label={
+              sidebarOpen ? "Collapse sidebar" : "Open sidebar"
+            }
           >
             <Menu size={19} />
           </button>
         </div>
 
-        <button className="new-chat-button" onClick={handleNewChat}>
+        <button
+          type="button"
+          className="new-chat-button"
+          onClick={handleNewChat}
+        >
           <Plus size={18} />
           {sidebarOpen && <span>New chat</span>}
         </button>
@@ -482,6 +609,7 @@ function App() {
                     />
                   ) : (
                     <button
+                      type="button"
                       className="recent-item"
                       onClick={() => handleOpenChat(chat)}
                     >
@@ -554,6 +682,11 @@ function App() {
             <UserCircle size={17} />
             {sidebarOpen && <span>Help</span>}
           </button>
+
+          <button type="button" onClick={() => setScreen("history")}>
+            <Database size={17} />
+            {sidebarOpen && <span>Your data</span>}
+          </button>
         </nav>
 
         <ProfileMenu
@@ -573,12 +706,14 @@ function App() {
               <h1>Talk to WaNhasi</h1>
 
               <button
+                type="button"
                 className={
-                    status === "Connected to WaNhasi"
-                      ? "voice-orb is-connected"
-                      : "voice-orb"
-                  }
+                  status === "Connected to WaNhasi"
+                    ? "voice-orb is-connected"
+                    : "voice-orb"
+                }
                 onClick={() => void handleStartVoice()}
+                aria-label="Start voice chat"
               >
                 <Mic size={42} />
               </button>
@@ -602,15 +737,22 @@ function App() {
                   ))
                 )}
               </div>
+
+              <ChatComposer
+                onSend={handleSendTyped}
+                onStartVoice={() => void handleStartVoice()}
+                disabled={typedLoading}
+              />
             </section>
           )}
 
           {screen === "weather" && (
-            <section>
+            <section className="weather-screen">
               <span className="eyebrow">LOCAL WEATHER</span>
               <h1>Weather for your farm</h1>
 
               <button
+                type="button"
                 className="location-button"
                 onClick={handleCurrentWeather}
               >
@@ -626,15 +768,23 @@ function App() {
 
                   <div>
                     <span>Current temperature</span>
-                    <strong>{weather.current.temperature_2m}°C</strong>
+                    <strong>
+                      {weather.current.temperature_2m}°C
+                    </strong>
                   </div>
 
                   <div className="weather-details">
-                    <span>High {weather.daily.temperature_2m_max[0]}°C</span>
-                    <span>Low {weather.daily.temperature_2m_min[0]}°C</span>
+                    <span>
+                      High {weather.daily.temperature_2m_max[0]}°C
+                    </span>
+                    <span>
+                      Low {weather.daily.temperature_2m_min[0]}°C
+                    </span>
                     <span>
                       Rain{" "}
-                      {weather.daily.precipitation_probability_max[0]}%
+                      {weather.daily
+                        .precipitation_probability_max[0]}
+                      %
                     </span>
                   </div>
                 </div>
@@ -643,28 +793,30 @@ function App() {
           )}
 
           {screen === "settings" && (
-            <section className="settings-screen">
-              <span className="eyebrow">SETTINGS</span>
-              <h1>Settings</h1>
+            <AccountSettingsScreen
+              userId={user.uid}
+              email={user.email ?? ""}
+              uid={user.uid}
+              mode={mode}
+              initialProfile={farmProfile ?? undefined}
+              onToggleMode={() =>
+                setMode((current) =>
+                  current === "dark" ? "light" : "dark",
+                )
+              }
+              onSwitchProfile={logoutUser}
+              onSignOut={logoutUser}
+              onBack={() => setScreen("voice")}
+            />
+          )}
 
-              <div className="settings-card">
-                <div>
-                  <strong>Appearance</strong>
-                  <p>Choose how WaNhasi looks.</p>
-                </div>
-
-                <button
-                  className="settings-theme-button"
-                  onClick={() =>
-                    setMode((current) =>
-                      current === "dark" ? "light" : "dark",
-                    )
-                  }
-                >
-                  Switch to {mode === "dark" ? "light" : "dark"} mode
-                </button>
-              </div>
-            </section>
+          {screen === "history" && (
+            <UserHistoryScreen
+              email={user.email ?? ""}
+              uid={user.uid}
+              chats={recentChats}
+              onBack={() => setScreen("voice")}
+            />
           )}
 
           {screen === "help" && (
