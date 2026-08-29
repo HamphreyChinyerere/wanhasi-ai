@@ -928,3 +928,227 @@ h1 {
 .sidebar.collapsed .profile-menu {
   overflow: visible;
 }
+
+/* Keep the sidebar fixed to the device height */
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 50;
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar.collapsed {
+  position: fixed;
+  width: 72px;
+  min-width: 72px;
+  height: 100vh;
+}
+
+/* Keep the main content beside the fixed sidebar */
+.app-main {
+  min-height: 100vh;
+  margin-left: 264px;
+}
+
+.sidebar.collapsed + .app-main {
+  margin-left: 72px;
+}
+
+/* Only recent chats scroll */
+.recent-section {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-subtle) transparent;
+}
+
+.recent-section::-webkit-scrollbar {
+  width: 6px;
+}
+
+.recent-section::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.recent-section::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: var(--text-subtle);
+}
+
+.recent-section::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Prevent the extra spacer from taking scrolling space */
+.sidebar-spacer {
+  display: none;
+}
+
+/* Keep footer and profile at the bottom */
+.sidebar-footer-links {
+  flex: 0 0 auto;
+}
+
+.profile-menu {
+  flex: 0 0 auto;
+  margin-top: 8px;
+}
+
+/* Mobile layout */
+@media (max-width: 700px) {
+  .sidebar {
+    width: 230px;
+    min-width: 230px;
+  }
+
+  .sidebar.collapsed {
+    width: 64px;
+    min-width: 64px;
+  }
+
+  .app-main,
+  .sidebar.collapsed + .app-main {
+    margin-left: 64px;
+  }
+}
+
+/* Voice screen fills the available viewport */
+.voice-screen {
+  display: flex;
+  min-height: calc(100vh - 110px);
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Keep the heading and microphone in place */
+.voice-screen h1,
+.voice-screen .voice-orb,
+.voice-screen .voice-status {
+  flex: 0 0 auto;
+}
+
+/* Only conversation messages scroll */
+.voice-screen .transcript-card {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 22px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-subtle) transparent;
+}
+
+.voice-screen .transcript-card::-webkit-scrollbar {
+  width: 7px;
+}
+
+.voice-screen .transcript-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.voice-screen .transcript-card::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: var(--text-subtle);
+}
+
+.voice-screen .transcript-card::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Keep input controls visible below the conversation */
+.voice-screen .chat-composer,
+.voice-screen .composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  flex: 0 0 auto;
+  margin-top: 18px;
+  background: var(--surface);
+  box-shadow: 0 -10px 24px rgb(7 21 15 / 35%);
+}
+
+/* Make sure new bubbles never appear behind the composer */
+.voice-screen .message-bubble:last-child {
+  margin-bottom: 8px;
+}
+
+@media (max-width: 700px) {
+  .voice-screen {
+    min-height: calc(100vh - 80px);
+  }
+
+  .voice-screen .transcript-card {
+    padding: 14px;
+  }
+
+  .voice-screen .chat-composer,
+  .voice-screen .composer {
+    width: 100%;
+  }
+}
+
+.voice-screen .transcript-card {
+  display: flex;
+  width: 100%;
+  height: clamp(320px, 58vh, 620px);
+  min-height: 320px;
+  max-height: 620px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--surface);
+  text-align: left;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-subtle) transparent;
+}
+
+.voice-screen .transcript-card::-webkit-scrollbar {
+  width: 7px;
+}
+
+.voice-screen .transcript-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.voice-screen .transcript-card::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: var(--text-subtle);
+}
+
+.voice-screen .transcript-card::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+.voice-screen .chat-composer,
+.voice-screen .composer {
+  position: static;
+  width: 100%;
+  flex: 0 0 auto;
+  margin-top: 18px;
+  box-shadow: none;
+}
+
+.voice-screen .message-bubble:last-child {
+  margin-bottom: 4px;
+}
+
+@media (max-width: 700px) {
+  .voice-screen .transcript-card {
+    height: 52vh;
+    min-height: 280px;
+    padding: 14px;
+  }
+}

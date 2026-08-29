@@ -25,7 +25,7 @@ export function createWeatherAdvice({
     );
   }
 
-  if (rainChance <= 20 && high >= 28) {
+  if (rainChance <= 20 && (high >= 28 || temperature >= 28)) {
     advice.push(
       `Conditions are dry and warm. Inspect ${cropText} for water stress and irrigate early if needed.`
     );
