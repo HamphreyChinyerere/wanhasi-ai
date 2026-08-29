@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import {
+  Check,
   CloudSun,
-  Database,
+  Copy,
+  GitBranch,
   Menu,
   Mic,
   MoreHorizontal,
@@ -12,6 +14,8 @@ import {
   Plus,
   Search,
   Settings,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
   UserCircle,
 } from "lucide-react";
@@ -50,9 +54,12 @@ type Screen =
   | "help"
   | "history";
 
+type MessageRole = "user" | "assistant";
+
 type TranscriptMessage = {
-  role: "user" | "assistant";
+  role: MessageRole;
   text: string;
+  timestamp: number;
 };
 
 type WeatherResult = {
@@ -66,6 +73,12 @@ type WeatherResult = {
   };
 };
 
+const formatMessageTime = (timestamp: number) =>
+  new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
+
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -73,30 +86,51 @@ function App() {
   const [onboardingComplete, setOnboardingComplete] = useState(false);
 
   const [screen, setScreen] = useState<Screen>("voice");
+  const [showVoicePanel, setShowVoicePanel] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const [mode, setMode] = useState<"dark" | "light">(() => {
-    return localStorage.getItem("wanhasi-mode") === "light"
+  const [mode, setMode] = useState<"dark" | "light">(() =>
+    localStorage.getItem("wanhasi-mode") === "light"
       ? "light"
-      : "dark";
-  });
+      : "dark",
+  );
 
   const [status, setStatus] = useState("Ready to talk");
-  const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([]);
+  const [transcripts, setTranscripts] = useState<
+    TranscriptMessage[]
+  >([]);
   const [weather, setWeather] = useState<WeatherResult | null>(null);
   const [weatherStatus, setWeatherStatus] = useState("");
   const [typedLoading, setTypedLoading] = useState(false);
 
-  const [farmProfile, setFarmProfile] = useState<FarmProfile | null>(null);
+  const [farmProfile, setFarmProfile] =
+    useState<FarmProfile | null>(null);
   const [recentChats, setRecentChats] = useState<ChatRecord[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(
+    null,
+  );
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const [openChatMenu, setOpenChatMenu] = useState<string | null>(null);
-  const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
+  const [openChatMenu, setOpenChatMenu] = useState<string | null>(
+    null,
+  );
+  const [renamingChatId, setRenamingChatId] = useState<string | null>(
+    null,
+  );
   const [renameValue, setRenameValue] = useState("");
+  const [copiedMessage, setCopiedMessage] = useState<number | null>(
+    null,
+  );
+  const [reactions, setReactions] = useState<
+    Record<number, "like" | "dislike" | undefined>
+  >({});
 
   const activeChatIdRef = useRef<string | null>(null);
+
+  const activeChatStorageKey = user
+    ? `wanhasi-active-chat-${user.uid}`
+    : "";
 
   useEffect(() => {
     return watchAuthState(async (currentUser) => {
@@ -106,6 +140,10 @@ function App() {
         setOnboardingComplete(false);
         setFarmProfile(null);
         setRecentChats([]);
+        setActiveChatId(null);
+        activeChatIdRef.current = null;
+        setTranscripts([]);
+        setShowVoicePanel(true);
         setAuthLoading(false);
         return;
       }
@@ -122,7 +160,10 @@ function App() {
             profileSnapshot.data().onboardingComplete === true,
         );
 
-        const savedFarmProfile = await loadFarmMemory(currentUser.uid);
+        const savedFarmProfile = await loadFarmMemory(
+          currentUser.uid,
+        );
+
         setFarmProfile(savedFarmProfile);
       } catch (error) {
         console.error("Could not load user profile:", error);
@@ -144,8 +185,46 @@ function App() {
       return;
     }
 
+    const savedChatId = localStorage.getItem(
+      `wanhasi-active-chat-${user.uid}`,
+    );
+
     void listRecentChats(user.uid)
-      .then(setRecentChats)
+      .then((chats) => {
+        setRecentChats(chats);
+
+        if (!savedChatId) {
+          return;
+        }
+
+        const savedChat = chats.find(
+          (chat) => chat.id === savedChatId,
+        );
+
+        if (!savedChat) {
+          localStorage.removeItem(
+            `wanhasi-active-chat-${user.uid}`,
+          );
+          return;
+        }
+
+        activeChatIdRef.current = savedChat.id;
+        setActiveChatId(savedChat.id);
+
+        setTranscripts(
+          (savedChat.messages ?? []).map((message) => ({
+            role: message.role,
+            text: message.text,
+            timestamp:
+              typeof (message as { timestamp?: number }).timestamp ===
+              "number"
+                ? (message as { timestamp: number }).timestamp
+                : Date.now(),
+          })),
+        );
+
+        setShowVoicePanel(false);
+      })
       .catch((error) => {
         console.error("Could not load recent chats:", error);
       });
@@ -189,7 +268,13 @@ function App() {
         chat.id === chatId
           ? {
               ...chat,
-              messages: [...(chat.messages ?? []), message],
+              messages: [
+                ...(chat.messages ?? []),
+                {
+                  role: message.role,
+                  text: message.text,
+                },
+              ],
             }
           : chat,
       ),
@@ -210,7 +295,10 @@ function App() {
       .join(" ");
 
     chatId = await createChat(user.uid, title);
+
     activeChatIdRef.current = chatId;
+    setActiveChatId(chatId);
+    localStorage.setItem(activeChatStorageKey, chatId);
 
     setRecentChats((current) => [
       {
@@ -231,7 +319,15 @@ function App() {
     setWeather(null);
     setWeatherStatus("");
     setTypedLoading(false);
+    setShowVoicePanel(true);
+    setActiveChatId(null);
+
     activeChatIdRef.current = null;
+
+    if (activeChatStorageKey) {
+      localStorage.removeItem(activeChatStorageKey);
+    }
+
     setOpenChatMenu(null);
     setRenamingChatId(null);
     setScreen("voice");
@@ -239,21 +335,29 @@ function App() {
 
   const handleOpenChat = (chat: ChatRecord) => {
     activeChatIdRef.current = chat.id;
+    setActiveChatId(chat.id);
+    localStorage.setItem(activeChatStorageKey, chat.id);
 
     setTranscripts(
       (chat.messages ?? []).map((message) => ({
         role: message.role,
         text: message.text,
+        timestamp:
+          typeof (message as { timestamp?: number }).timestamp ===
+          "number"
+            ? (message as { timestamp: number }).timestamp
+            : Date.now(),
       })),
     );
 
+    setShowVoicePanel(false);
     setStatus("Chat loaded");
     setScreen("voice");
     setOpenChatMenu(null);
   };
 
   const saveVoiceMessage = async (
-    role: "user" | "assistant",
+    role: MessageRole,
     text: string,
   ) => {
     const chatId =
@@ -270,7 +374,11 @@ function App() {
       text,
     });
 
-    updateChatMessages(chatId, { role, text });
+    updateChatMessages(chatId, {
+      role,
+      text,
+      timestamp: Date.now(),
+    });
   };
 
   const requestDevicePermissions = async () => {
@@ -305,22 +413,30 @@ function App() {
       await requestDevicePermissions();
 
       setScreen("voice");
+      setShowVoicePanel(true);
       setStatus("Connecting...");
 
       const socket = await connectVoiceAgent((message) => {
-        console.log("AssemblyAI voice event:", message);
-
         if (message.type === "session.ready") {
           setStatus("Connected to WaNhasi");
         }
 
-          if (message.type === "reply.started") {
-            setStatus("WaNhasi is speaking...");
-          }
+        if (message.type === "reply.started") {
+          setStatus("WaNhasi is speaking...");
 
-          if (message.type === "reply.done") {
-            setStatus("Ready to talk");
-          }
+          setTranscripts((current) => [
+            ...current,
+            {
+              role: "assistant",
+              text: "WaNhasi is preparing a response...",
+              timestamp: Date.now(),
+            },
+          ]);
+        }
+
+        if (message.type === "reply.done") {
+          setStatus("Ready to talk");
+        }
 
         if (message.type === "transcript.user" && message.text) {
           const text = message.text.trim();
@@ -332,12 +448,17 @@ function App() {
               return current;
             }
 
-            return [...current, { role: "user", text }];
+            return [
+              ...current,
+              {
+                role: "user",
+                text,
+                timestamp: Date.now(),
+              },
+            ];
           });
 
-          void saveVoiceMessage("user", text).catch((error) => {
-            console.error("Could not save user message:", error);
-          });
+          void saveVoiceMessage("user", text);
         }
 
         if (message.type === "transcript.agent" && message.text) {
@@ -349,16 +470,25 @@ function App() {
             if (previous?.role === "assistant") {
               return [
                 ...current.slice(0, -1),
-                { role: "assistant", text },
+                {
+                  role: "assistant",
+                  text,
+                  timestamp: previous.timestamp,
+                },
               ];
             }
 
-            return [...current, { role: "assistant", text }];
+            return [
+              ...current,
+              {
+                role: "assistant",
+                text,
+                timestamp: Date.now(),
+              },
+            ];
           });
 
-          void saveVoiceMessage("assistant", text).catch((error) => {
-            console.error("Could not save assistant message:", error);
-          });
+          void saveVoiceMessage("assistant", text);
         }
       });
 
@@ -378,61 +508,138 @@ function App() {
       return;
     }
 
+    setShowVoicePanel(false);
     setScreen("voice");
     setTypedLoading(true);
 
-    const chatId = await ensureChat(prompt);
-
-    const userMessage: TranscriptMessage = {
-      role: "user",
-      text: prompt,
-    };
-
-    setTranscripts((current) => [...current, userMessage]);
-    await saveChatMessage(user.uid, chatId, userMessage);
-    updateChatMessages(chatId, userMessage);
-
     try {
-      const response = await fetch("http://localhost:3001/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const chatId = await ensureChat(prompt);
+
+      const userMessage: TranscriptMessage = {
+        role: "user",
+        text: prompt,
+        timestamp: Date.now(),
+      };
+
+      setTranscripts((current) => [...current, userMessage]);
+      await saveChatMessage(user.uid, chatId, userMessage);
+      updateChatMessages(chatId, userMessage);
+
+      const response = await fetch(
+        "http://localhost:3001/api/chat",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt,
+            farmProfile,
+          }),
         },
-        body: JSON.stringify({
-          prompt,
-          farmProfile,
-        }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error("Gemini request failed.");
       }
 
-      const result = (await response.json()) as { text?: string };
-      const answer =
-        result.text?.trim() ||
-        "I could not generate a response right now.";
+      const result = (await response.json()) as {
+        text?: string;
+      };
 
       const assistantMessage: TranscriptMessage = {
         role: "assistant",
-        text: answer,
+        text:
+          result.text?.trim() ||
+          "I could not generate a response right now.",
+        timestamp: Date.now(),
       };
 
-      setTranscripts((current) => [...current, assistantMessage]);
+      setTranscripts((current) => [
+        ...current,
+        assistantMessage,
+      ]);
+
       await saveChatMessage(user.uid, chatId, assistantMessage);
       updateChatMessages(chatId, assistantMessage);
     } catch (error) {
       console.error("Typed chat failed:", error);
 
-      const errorMessage: TranscriptMessage = {
-        role: "assistant",
-        text: "I could not connect to WaNhasi right now. Please try again.",
-      };
-
-      setTranscripts((current) => [...current, errorMessage]);
+      setTranscripts((current) => [
+        ...current,
+        {
+          role: "assistant",
+          text: "I could not connect to WaNhasi right now. Please try again.",
+          timestamp: Date.now(),
+        },
+      ]);
     } finally {
       setTypedLoading(false);
     }
+  };
+
+  const handleCopyMessage = async (
+    text: string,
+    index: number,
+  ) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedMessage(index);
+
+    window.setTimeout(() => {
+      setCopiedMessage((current) =>
+        current === index ? null : current,
+      );
+    }, 1500);
+  };
+
+  const handleReaction = (
+    index: number,
+    reaction: "like" | "dislike",
+  ) => {
+    setReactions((current) => ({
+      ...current,
+      [index]: current[index] === reaction ? undefined : reaction,
+    }));
+  };
+
+  const handleBranchChat = async (index: number) => {
+    const branchMessages = transcripts.slice(0, index + 1);
+    const firstUserMessage = branchMessages.find(
+      (message) => message.role === "user",
+    );
+
+    const title = `Branch: ${
+      firstUserMessage?.text.slice(0, 48) || "New conversation"
+    }`;
+
+    const branchId = await createChat(user.uid, title);
+
+    for (const message of branchMessages) {
+      await saveChatMessage(user.uid, branchId, {
+        role: message.role,
+        text: message.text,
+      });
+    }
+
+    setRecentChats((current) => [
+      {
+        id: branchId,
+        title,
+        pinned: false,
+        messages: branchMessages.map((message) => ({
+          role: message.role,
+          text: message.text,
+        })),
+      },
+      ...current,
+    ]);
+
+    activeChatIdRef.current = branchId;
+    setActiveChatId(branchId);
+    localStorage.setItem(activeChatStorageKey, branchId);
+    setTranscripts(branchMessages);
+    setShowVoicePanel(false);
+    setScreen("voice");
   };
 
   const handleCurrentWeather = () => {
@@ -499,8 +706,11 @@ function App() {
 
     if (activeChatIdRef.current === chatId) {
       activeChatIdRef.current = null;
+      setActiveChatId(null);
       setTranscripts([]);
+      setShowVoicePanel(true);
       setScreen("voice");
+      localStorage.removeItem(activeChatStorageKey);
     }
 
     setOpenChatMenu(null);
@@ -610,7 +820,9 @@ function App() {
                   ) : (
                     <button
                       type="button"
-                      className="recent-item"
+                      className={`recent-item ${
+                        activeChatId === chat.id ? "active" : ""
+                      }`}
                       onClick={() => handleOpenChat(chat)}
                     >
                       <span>{chat.title}</span>
@@ -670,8 +882,6 @@ function App() {
           </section>
         )}
 
-        <div className="sidebar-spacer" />
-
         <nav className="sidebar-footer-links">
           <button type="button" onClick={() => setScreen("settings")}>
             <Settings size={17} />
@@ -681,11 +891,6 @@ function App() {
           <button type="button" onClick={() => setScreen("help")}>
             <UserCircle size={17} />
             {sidebarOpen && <span>Help</span>}
-          </button>
-
-          <button type="button" onClick={() => setScreen("history")}>
-            <Database size={17} />
-            {sidebarOpen && <span>Your data</span>}
           </button>
         </nav>
 
@@ -702,25 +907,36 @@ function App() {
         <main className="screen-content">
           {screen === "voice" && (
             <section className="voice-screen">
-              <span className="eyebrow">VOICE ASSISTANT</span>
-              <h1>Talk to WaNhasi</h1>
+              {showVoicePanel && (
+                <>
+                  <span className="eyebrow">VOICE ASSISTANT</span>
+                  <h1>Talk to WaNhasi</h1>
 
-              <button
-                type="button"
-                className={
-                  status === "Connected to WaNhasi"
-                    ? "voice-orb is-connected"
-                    : "voice-orb"
-                }
-                onClick={() => void handleStartVoice()}
-                aria-label="Start voice chat"
+                  <button
+                    type="button"
+                    className={
+                      status === "Connected to WaNhasi" ||
+                      status === "WaNhasi is speaking..."
+                        ? "voice-orb is-connected"
+                        : "voice-orb"
+                    }
+                    onClick={() => void handleStartVoice()}
+                    aria-label="Start voice chat"
+                  >
+                    <Mic size={42} />
+                  </button>
+
+                  <p className="voice-status">{status}</p>
+                </>
+              )}
+
+              <div
+                className={`transcript-card ${
+                  transcripts.length === 0
+                    ? "empty-transcript"
+                    : "has-messages"
+                }`}
               >
-                <Mic size={42} />
-              </button>
-
-              <p className="voice-status">{status}</p>
-
-              <div className="transcript-card">
                 {transcripts.length === 0 ? (
                   <span>Your conversation will appear here.</span>
                 ) : (
@@ -732,7 +948,68 @@ function App() {
                       <small>
                         {message.role === "user" ? "You" : "WaNhasi"}
                       </small>
+
                       <p>{message.text}</p>
+
+                      <time dateTime={new Date(message.timestamp).toISOString()}>
+                        {formatMessageTime(message.timestamp)}
+                      </time>
+
+                      <div className="message-actions">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleCopyMessage(message.text, index)
+                          }
+                          aria-label="Copy message"
+                          title="Copy message"
+                        >
+                          {copiedMessage === index ? (
+                            <Check size={14} />
+                          ) : (
+                            <Copy size={14} />
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          className={
+                            reactions[index] === "like"
+                              ? "selected"
+                              : ""
+                          }
+                          onClick={() => handleReaction(index, "like")}
+                          aria-label="Like message"
+                          title="Like message"
+                        >
+                          <ThumbsUp size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          className={
+                            reactions[index] === "dislike"
+                              ? "selected"
+                              : ""
+                          }
+                          onClick={() =>
+                            handleReaction(index, "dislike")
+                          }
+                          aria-label="Dislike message"
+                          title="Dislike message"
+                        >
+                          <ThumbsDown size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void handleBranchChat(index)}
+                          aria-label="Branch this conversation"
+                          title="Branch in new chat"
+                        >
+                          <GitBranch size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
