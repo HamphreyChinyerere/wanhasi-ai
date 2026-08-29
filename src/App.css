@@ -203,7 +203,8 @@ select:focus-visible {
 }
 
 .sidebar-nav button:hover,
-.sidebar-footer-links button:hover {
+.sidebar-footer-links button:hover,
+.profile-button:hover {
   background: var(--surface-hover);
   color: var(--accent);
 }
@@ -301,6 +302,16 @@ select:focus-visible {
   white-space: nowrap;
 }
 
+.rename-chat-input {
+  min-width: 0;
+  flex: 1;
+  padding: 8px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--background);
+  color: var(--text);
+}
+
 .chat-menu-button {
   display: grid;
   width: 30px;
@@ -352,11 +363,11 @@ select:focus-visible {
   color: #d96b5f !important;
 }
 
+/* Profile */
+
 .sidebar-spacer {
   display: none;
 }
-
-/* Profile menu */
 
 .profile-menu {
   position: relative;
@@ -456,7 +467,7 @@ select:focus-visible {
   display: none;
 }
 
-/* General screens */
+/* Screens */
 
 .voice-screen,
 .weather-screen,
@@ -466,6 +477,14 @@ select:focus-visible {
 .account-settings-screen {
   width: min(100%, 900px);
   margin: 0 auto;
+}
+
+.voice-screen {
+  display: flex;
+  min-height: calc(100vh - 110px);
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .eyebrow {
@@ -485,15 +504,7 @@ h1 {
   letter-spacing: -1.5px;
 }
 
-/* Voice */
-
-.voice-screen {
-  display: flex;
-  min-height: calc(100vh - 110px);
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
+/* Voice assistant */
 
 .voice-orb {
   display: grid;
@@ -534,38 +545,54 @@ h1 {
   color: var(--accent);
 }
 
-.transcript-card {
+.voice-screen .transcript-card {
   display: flex;
   width: 100%;
-  min-height: 120px;
-  flex-direction: column;
-  gap: 12px;
-  padding: 22px;
-  border: 1px solid var(--border);
-  border-radius: 15px;
-  background: #242424;
-  text-align: left;
-}
-
-.voice-screen .transcript-card.has-messages {
   height: clamp(320px, 58vh, 620px);
   min-height: 320px;
   max-height: 620px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 12px;
   overflow-y: auto;
+  overflow-x: hidden;
+  padding: 22px;
+  border: 1px solid var(--accent);
+  border-radius: 15px;
+  background: #242424;
+  text-align: left;
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-subtle) transparent;
 }
 
 .voice-screen .transcript-card.empty-transcript {
   height: 108px;
   min-height: 108px;
   max-height: 108px;
+  justify-content: center;
   overflow: hidden;
 }
 
+.voice-screen .transcript-card::-webkit-scrollbar {
+  width: 7px;
+}
+
+.voice-screen .transcript-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.voice-screen .transcript-card::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: var(--text-subtle);
+}
+
 .message-bubble {
+  position: relative;
   width: fit-content;
   max-width: 78%;
   margin: 10px 0;
-  padding: 12px 15px;
+  padding: 12px 15px 35px;
   border-radius: 16px;
   line-height: 1.5;
 }
@@ -594,15 +621,52 @@ h1 {
 
 .message-bubble p {
   margin: 0;
+  white-space: pre-wrap;
+}
+
+.message-bubble time {
+  position: absolute;
+  right: 12px;
+  bottom: 9px;
+  color: rgb(255 255 255 / 65%);
+  font-size: 11px;
+}
+
+.message-actions {
+  position: absolute;
+  bottom: 6px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.message-actions button {
+  display: inline-flex;
+  width: 25px;
+  height: 25px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: rgb(255 255 255 / 65%);
+}
+
+.message-actions button:hover,
+.message-actions button.selected {
+  background: rgb(255 255 255 / 14%);
+  color: var(--accent);
 }
 
 /* Composer */
 
-.chat-composer,
-.composer {
+.voice-screen .chat-composer,
+.voice-screen .composer {
   display: flex;
   width: 100%;
   min-height: 58px;
+  flex: 0 0 auto;
   align-items: flex-end;
   gap: 8px;
   margin-top: 18px;
@@ -672,12 +736,66 @@ h1 {
   color: #10160f !important;
 }
 
-/* Settings */
+/* Weather */
 
-.settings-screen,
-.account-settings-screen {
-  max-width: 900px;
+.location-button,
+.settings-theme-button,
+.history-back-button,
+.contact-support-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 15px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #10160f;
+  font-weight: 700;
+  text-decoration: none;
 }
+
+.location-button:hover,
+.settings-theme-button:hover,
+.history-back-button:hover,
+.contact-support-button:hover {
+  background: var(--accent-dark);
+}
+
+.weather-status,
+.settings-status {
+  margin: 16px 0;
+  color: var(--text-muted);
+}
+
+.weather-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 20px;
+  align-items: center;
+  margin-top: 20px;
+  padding: 21px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.weather-card strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--accent);
+  font-size: 32px;
+}
+
+.weather-details {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--text-muted);
+}
+
+/* Settings */
 
 .settings-screen h1,
 .account-settings-screen h1 {
@@ -760,26 +878,6 @@ h1 {
   margin-top: 18px;
 }
 
-.settings-theme-button,
-.account-settings-actions button,
-.save-farm-button,
-.profile-action-button {
-  min-height: 40px;
-  padding: 9px 15px;
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  background: var(--accent);
-  color: #10160f;
-  font-weight: 700;
-}
-
-.settings-theme-button:hover,
-.account-settings-actions button:hover,
-.save-farm-button:hover,
-.profile-action-button:hover {
-  background: var(--accent-dark);
-}
-
 /* Help */
 
 .help-screen {
@@ -810,8 +908,7 @@ h1 {
   line-height: 1.6;
 }
 
-.help-card a,
-.contact-support-button {
+.help-card a {
   display: inline-flex;
   min-height: 38px;
   align-items: center;
@@ -821,17 +918,6 @@ h1 {
   background: var(--accent);
   color: #10160f;
   font-weight: 700;
-  text-decoration: none;
-}
-
-.help-card a:hover,
-.contact-support-button:hover {
-  background: var(--accent-dark);
-}
-
-.help-screen .settings-theme-button {
-  display: inline-flex;
-  margin-top: 24px;
 }
 
 /* History */
@@ -839,10 +925,14 @@ h1 {
 .history-user-card,
 .history-chat-card {
   margin-top: 18px;
+  padding: 21px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
 }
 
 .history-user-card p {
-  margin: 7px 0 0;
+  margin-top: 7px;
   color: var(--text-muted);
   overflow-wrap: anywhere;
 }
