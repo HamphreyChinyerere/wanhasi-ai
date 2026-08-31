@@ -86,7 +86,8 @@ function App() {
   const [onboardingComplete, setOnboardingComplete] = useState(false);
 
   const [screen, setScreen] = useState<Screen>("voice");
-  const [showVoicePanel, setShowVoicePanel] = useState(true);
+  const [showVoicePanel, setShowVoicePanel] = useState(false);
+  const [voiceActive, setVoiceActive] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const [mode, setMode] = useState<"dark" | "light">(() =>
@@ -143,7 +144,8 @@ function App() {
         setActiveChatId(null);
         activeChatIdRef.current = null;
         setTranscripts([]);
-        setShowVoicePanel(true);
+        setShowVoicePanel(false);
+        setVoiceActive(false);
         setAuthLoading(false);
         return;
       }
@@ -210,6 +212,7 @@ function App() {
 
         activeChatIdRef.current = savedChat.id;
         setActiveChatId(savedChat.id);
+        setShowVoicePanel(false);
 
         setTranscripts(
           (savedChat.messages ?? []).map((message) => ({
@@ -222,8 +225,6 @@ function App() {
                 : Date.now(),
           })),
         );
-
-        setShowVoicePanel(false);
       })
       .catch((error) => {
         console.error("Could not load recent chats:", error);
@@ -319,6 +320,7 @@ function App() {
     setWeather(null);
     setWeatherStatus("");
     setTypedLoading(false);
+    setVoiceActive(false);
     setShowVoicePanel(true);
     setActiveChatId(null);
 
@@ -336,6 +338,8 @@ function App() {
   const handleOpenChat = (chat: ChatRecord) => {
     activeChatIdRef.current = chat.id;
     setActiveChatId(chat.id);
+    setVoiceActive(false);
+    setShowVoicePanel(false);
     localStorage.setItem(activeChatStorageKey, chat.id);
 
     setTranscripts(
@@ -350,7 +354,6 @@ function App() {
       })),
     );
 
-    setShowVoicePanel(false);
     setStatus("Chat loaded");
     setScreen("voice");
     setOpenChatMenu(null);
@@ -408,20 +411,27 @@ function App() {
     }
   };
 
-  const handleStartVoice = async () => {
+  const handleStartVoice = async (openPanel = false) => {
     try {
       await requestDevicePermissions();
 
       setScreen("voice");
-      setShowVoicePanel(true);
+      setVoiceActive(true);
+
+      if (openPanel) {
+        setShowVoicePanel(true);
+      }
+
       setStatus("Connecting...");
 
       const socket = await connectVoiceAgent((message) => {
         if (message.type === "session.ready") {
+          setVoiceActive(true);
           setStatus("Connected to WaNhasi");
         }
 
         if (message.type === "reply.started") {
+          setVoiceActive(true);
           setStatus("WaNhasi is speaking...");
 
           setTranscripts((current) => [
@@ -458,7 +468,9 @@ function App() {
             ];
           });
 
-          void saveVoiceMessage("user", text);
+          void saveVoiceMessage("user", text).catch((error) => {
+            console.error("Could not save user message:", error);
+          });
         }
 
         if (message.type === "transcript.agent" && message.text) {
@@ -488,14 +500,18 @@ function App() {
             ];
           });
 
-          void saveVoiceMessage("assistant", text);
+          void saveVoiceMessage("assistant", text).catch((error) => {
+            console.error("Could not save assistant message:", error);
+          });
         }
       });
 
       socket.addEventListener("error", () => {
+        setVoiceActive(false);
         setStatus("Connection failed");
       });
     } catch (error) {
+      setVoiceActive(false);
       setStatus("Microphone permission is required.");
       console.error(error);
     }
@@ -509,6 +525,7 @@ function App() {
     }
 
     setShowVoicePanel(false);
+    setVoiceActive(false);
     setScreen("voice");
     setTypedLoading(true);
 
@@ -639,6 +656,7 @@ function App() {
     localStorage.setItem(activeChatStorageKey, branchId);
     setTranscripts(branchMessages);
     setShowVoicePanel(false);
+    setVoiceActive(false);
     setScreen("voice");
   };
 
@@ -709,6 +727,7 @@ function App() {
       setActiveChatId(null);
       setTranscripts([]);
       setShowVoicePanel(true);
+      setVoiceActive(false);
       setScreen("voice");
       localStorage.removeItem(activeChatStorageKey);
     }
@@ -906,7 +925,11 @@ function App() {
 
         <main className="screen-content">
           {screen === "voice" && (
-            <section className="voice-screen">
+            <section
+              className={`voice-screen ${
+                showVoicePanel ? "voice-mode" : "text-mode"
+              } ${voiceActive ? "voice-active" : ""}`}
+            >
               {showVoicePanel && (
                 <>
                   <span className="eyebrow">VOICE ASSISTANT</span>
@@ -915,12 +938,11 @@ function App() {
                   <button
                     type="button"
                     className={
-                      status === "Connected to WaNhasi" ||
-                      status === "WaNhasi is speaking..."
+                      voiceActive
                         ? "voice-orb is-connected"
                         : "voice-orb"
                     }
-                    onClick={() => void handleStartVoice()}
+                    onClick={() => void handleStartVoice(true)}
                     aria-label="Start voice chat"
                   >
                     <Mic size={42} />
@@ -931,94 +953,95 @@ function App() {
               )}
 
               <div
-                className={`transcript-card ${
-                  transcripts.length === 0
-                    ? "empty-transcript"
-                    : "has-messages"
-                }`}
+  className={`transcript-card ${
+    transcripts.length === 0
+      ? "empty-transcript"
+      : "has-messages"
+  }`}
+>
+  <div className="transcript-scroll">
+    {transcripts.length === 0 ? (
+      <span>Your conversation will appear here.</span>
+    ) : (
+      <div className="transcript-messages">
+        {transcripts.map((message, index) => (
+          <div
+            className={`message-bubble ${message.role}`}
+            key={`${message.role}-${index}-${message.timestamp}`}
+          >
+            <small>
+              {message.role === "user" ? "You" : "WaNhasi"}
+            </small>
+
+            <p>{message.text}</p>
+
+            <time
+              dateTime={new Date(message.timestamp).toISOString()}
+            >
+              {formatMessageTime(message.timestamp)}
+            </time>
+
+            <div className="message-actions">
+              <button
+                type="button"
+                onClick={() =>
+                  void handleCopyMessage(message.text, index)
+                }
+                aria-label="Copy message"
+                title="Copy message"
               >
-                {transcripts.length === 0 ? (
-                  <span>Your conversation will appear here.</span>
+                {copiedMessage === index ? (
+                  <Check size={14} />
                 ) : (
-                  transcripts.map((message, index) => (
-                    <div
-                      className={`message-bubble ${message.role}`}
-                      key={`${message.role}-${index}-${message.text}`}
-                    >
-                      <small>
-                        {message.role === "user" ? "You" : "WaNhasi"}
-                      </small>
-
-                      <p>{message.text}</p>
-
-                      <time dateTime={new Date(message.timestamp).toISOString()}>
-                        {formatMessageTime(message.timestamp)}
-                      </time>
-
-                      <div className="message-actions">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void handleCopyMessage(message.text, index)
-                          }
-                          aria-label="Copy message"
-                          title="Copy message"
-                        >
-                          {copiedMessage === index ? (
-                            <Check size={14} />
-                          ) : (
-                            <Copy size={14} />
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          className={
-                            reactions[index] === "like"
-                              ? "selected"
-                              : ""
-                          }
-                          onClick={() => handleReaction(index, "like")}
-                          aria-label="Like message"
-                          title="Like message"
-                        >
-                          <ThumbsUp size={14} />
-                        </button>
-
-                        <button
-                          type="button"
-                          className={
-                            reactions[index] === "dislike"
-                              ? "selected"
-                              : ""
-                          }
-                          onClick={() =>
-                            handleReaction(index, "dislike")
-                          }
-                          aria-label="Dislike message"
-                          title="Dislike message"
-                        >
-                          <ThumbsDown size={14} />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => void handleBranchChat(index)}
-                          aria-label="Branch this conversation"
-                          title="Branch in new chat"
-                        >
-                          <GitBranch size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  ))
+                  <Copy size={14} />
                 )}
-              </div>
+              </button>
+
+              <button
+                type="button"
+                className={
+                  reactions[index] === "like" ? "selected" : ""
+                }
+                onClick={() => handleReaction(index, "like")}
+                aria-label="Like message"
+                title="Like message"
+              >
+                <ThumbsUp size={14} />
+              </button>
+
+              <button
+                type="button"
+                className={
+                  reactions[index] === "dislike" ? "selected" : ""
+                }
+                onClick={() => handleReaction(index, "dislike")}
+                aria-label="Dislike message"
+                title="Dislike message"
+              >
+                <ThumbsDown size={14} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleBranchChat(index)}
+                aria-label="Branch in new chat"
+                title="Branch in new chat"
+              >
+                <GitBranch size={14} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
 
               <ChatComposer
                 onSend={handleSendTyped}
-                onStartVoice={() => void handleStartVoice()}
+                onStartVoice={() => void handleStartVoice(false)}
                 disabled={typedLoading}
+                isVoiceActive={voiceActive}
               />
             </section>
           )}

@@ -11,6 +11,7 @@ type ChatComposerProps = {
   onSend: (message: string) => void | Promise<void>;
   onStartVoice: () => void | Promise<void>;
   disabled?: boolean;
+  isVoiceActive?: boolean;
 };
 
 const MAX_LINES = 12;
@@ -21,6 +22,7 @@ function ChatComposer({
   onSend,
   onStartVoice,
   disabled = false,
+  isVoiceActive = false,
 }: ChatComposerProps) {
   const [message, setMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -35,9 +37,21 @@ function ChatComposer({
     textarea.style.height = "auto";
 
     const nextHeight = Math.min(textarea.scrollHeight, MAX_HEIGHT);
+
     textarea.style.height = `${nextHeight}px`;
     textarea.style.overflowY =
       textarea.scrollHeight > MAX_HEIGHT ? "auto" : "hidden";
+  };
+
+  const resetTextarea = () => {
+    const textarea = textareaRef.current;
+
+    if (!textarea) {
+      return;
+    }
+
+    textarea.style.height = `${LINE_HEIGHT}px`;
+    textarea.style.overflowY = "hidden";
   };
 
   const submitMessage = async () => {
@@ -48,21 +62,17 @@ function ChatComposer({
     }
 
     await onSend(trimmedMessage);
+
     setMessage("");
 
     requestAnimationFrame(() => {
-      const textarea = textareaRef.current;
-
-      if (!textarea) {
-        return;
-      }
-
-      textarea.style.height = `${LINE_HEIGHT}px`;
-      textarea.style.overflowY = "hidden";
+      resetTextarea();
     });
   };
 
-  const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+  const handleChange = (
+    event: ChangeEvent<HTMLTextAreaElement>,
+  ) => {
     setMessage(event.target.value);
     resizeTextarea();
   };
@@ -97,7 +107,9 @@ function ChatComposer({
       <div className="composer-actions">
         <button
           type="button"
-          className="composer-button"
+          className={`composer-button ${
+            isVoiceActive ? "is-voice-active" : ""
+          }`}
           onClick={() => void onStartVoice()}
           disabled={disabled}
           aria-label="Start voice chat"

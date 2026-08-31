@@ -5,9 +5,6 @@ import {
   deleteDoc,
   doc,
   getDocs,
-  limit,
-  orderBy,
-  query,
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
@@ -16,7 +13,7 @@ import { db } from "./firebase";
 export type ChatMessage = {
   role: "user" | "assistant";
   text: string;
-  createdAt?: unknown;
+  timestamp?: number;
 };
 
 export type ChatRecord = {
@@ -28,55 +25,56 @@ export type ChatRecord = {
   updatedAt?: unknown;
 };
 
-function chatsCollection(userId: string) {
-  return collection(db, "users", userId, "chats");
-}
+const chatsCollection = (userId: string) =>
+  collection(db, "users", userId, "chats");
 
-function chatDocument(userId: string, chatId: string) {
-  return doc(db, "users", userId, "chats", chatId);
-}
+const chatDocument = (userId: string, chatId: string) =>
+  doc(db, "users", userId, "chats", chatId);
 
 export async function createChat(
   userId: string,
   title: string,
-) {
-  const reference = await addDoc(chatsCollection(userId), {
-    title,
+): Promise<string> {
+  const chat = await addDoc(chatsCollection(userId), {
+    title: title.trim() || "New conversation",
     pinned: false,
     messages: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 
-  return reference.id;
+  return chat.id;
 }
 
 export async function listRecentChats(
   userId: string,
 ): Promise<ChatRecord[]> {
-  const chatsQuery = query(
-    chatsCollection(userId),
-    orderBy("updatedAt", "desc"),
-    limit(50),
-  );
+  const snapshot = await getDocs(chatsCollection(userId));
 
-  const snapshot = await getDocs(chatsQuery);
+  const chats = snapshot.docs.map((chat) => {
+    const data = chat.data();
 
-  const chats = snapshot.docs.map((chat) => ({
-    id: chat.id,
-    ...(chat.data() as Omit<ChatRecord, "id">),
-  }));
+    return {
+      id: chat.id,
+      title:
+        typeof data.title === "string"
+          ? data.title
+          : "New conversation",
+      pinned: data.pinned === true,
+      messages: Array.isArray(data.messages)
+        ? (data.messages as ChatMessage[])
+        : [],
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    };
+  });
 
   return chats.sort((first, second) => {
-    if (first.pinned && !second.pinned) {
-      return -1;
+    if (first.pinned !== second.pinned) {
+      return first.pinned ? -1 : 1;
     }
 
-    if (!first.pinned && second.pinned) {
-      return 1;
-    }
-
-    return 0;
+    return second.id.localeCompare(first.id);
   });
 }
 
@@ -84,12 +82,12 @@ export async function saveChatMessage(
   userId: string,
   chatId: string,
   message: ChatMessage,
-) {
+): Promise<void> {
   await updateDoc(chatDocument(userId, chatId), {
     messages: arrayUnion({
       role: message.role,
       text: message.text,
-      createdAt: new Date().toISOString(),
+      timestamp: message.timestamp ?? Date.now(),
     }),
     updatedAt: serverTimestamp(),
   });
@@ -99,9 +97,9 @@ export async function renameChat(
   userId: string,
   chatId: string,
   title: string,
-) {
+): Promise<void> {
   await updateDoc(chatDocument(userId, chatId), {
-    title: title.trim() || "Untitled conversation",
+    title: title.trim(),
     updatedAt: serverTimestamp(),
   });
 }
@@ -110,7 +108,7 @@ export async function toggleChatPin(
   userId: string,
   chatId: string,
   pinned: boolean,
-) {
+): Promise<void> {
   await updateDoc(chatDocument(userId, chatId), {
     pinned,
     updatedAt: serverTimestamp(),
@@ -120,6 +118,6 @@ export async function toggleChatPin(
 export async function removeChat(
   userId: string,
   chatId: string,
-) {
+): Promise<void> {
   await deleteDoc(chatDocument(userId, chatId));
 }
